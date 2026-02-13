@@ -1,4 +1,4 @@
-# Project 2 - DELTA: L2/L3 Scanner
+# Project 1 - DELTA: L2/L3 Scanner
 
 ## Assignment
 1. Create a simple network ICMP(v6), ARP/NDP scanner in C/C++/C#. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers (7 pts.) 
