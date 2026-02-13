@@ -1,8 +1,8 @@
 # Project 1 - DELTA: L2/L3 Scanner
 
 ## Assignment
-1. Create a simple network ICMP(v6), ARP/NDP scanner in C/C++/C#. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers (7 pts.) 
-2. Create relevant manual/documentation for the project (3 pts.)
+1. Create a simple network ICMP(v6), ARP/NDP scanner. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers.
+2. Create relevant tests for the project.
 
 ## Specification
 The application scans for presence of L2 and L3 devices on given network segment(s). 
@@ -15,7 +15,7 @@ Scanning should be done and return results as fast as possible. During developme
 
 ### Execution
 ```
-./ipk-l2l3-scan [-i interface | --interface interface] {-w timeout} [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
+./ipk-l2l3-scan [-i interface | --interface interface] [-w timeout] [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
 ```
 ```
 ./ipk-l2l3-scan --help
@@ -31,10 +31,10 @@ where:
 
 * `-h`/`--help` writes usage instructions to `stdout` and terminates
 * `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed (additional information beyond the interface list is welcome but not required).
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
+* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response during scanning of a host. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
 * `-s 192.168.1.0/24` or `--subnet fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., the `-s/--subnet` argument can be repeated when the program is called).
 * The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` or `--subnet` argument.
-* The application does not have to deal with the "bloat" of the `-s` or `--subnet` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e.,attempting to ARP scan a network to which the computer is not directly connected).
+* The application does not have to deal with the "bloat" of the `-s` or `--subnet` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e., attempting to ARP scan a network to which the computer is not directly connected).
 * All arguments can be in any order.
 
 ### Execution Examples

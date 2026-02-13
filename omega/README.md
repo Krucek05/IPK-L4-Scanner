@@ -1,11 +1,11 @@
 # Project 1 - OMEGA: L4 Scanner
 
 ## Assignment
-1. Create a simple TCP and UDP network L4 scanner. The program will scan the specified hostname or IP address(es) (plural IP addresses in the case of multiple answers to DNS query) and ports. It will output to stdout port statuses (open, filtered, closed) (7 pts.) 
-2. Create relevant manual/documentation for the project (3 pts.)
+1. Create a simple TCP and UDP network L4 scanner. The program will scan the specified hostname or IP address(es) (plural IP addresses in the case of multiple answers to DNS query) and ports. It will output to stdout port statuses (open, filtered, closed).
+2. Create relevant tests for the project.
 
 ## Specification
-The application scans the selected ports of device (translated onto one or more IPv4/IPv6 addresses) on a given network interface. 
+The application scans selected ports of a device (translated onto one or more IPv4/IPv6 addresses) on a given network interface.
 
 Packets/Frames should be sent using sockets. If needed, you can eavesdrop on the responses using the libpcap library.
 
@@ -21,7 +21,7 @@ With UDP scanning, you can think of a given computer responding with an ICMP mes
 
 ### Execution
 ```
-./ipk-l4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] {-w timeout} [hostname | ip-address]
+./ipk-l4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] [-w timeout] [hostname | ip-address]
 ```
 ```
 ./ipk-l4-scan --help
@@ -37,7 +37,8 @@ where:
 
 * `-h`/`--help` writes usage instructions to `stdout` and terminates
 * `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed (additional information beyond the interface list is welcome but not required).
-* `-t` or `--pt`, `-u` or `--pu` port-ranges - scanned tcp/udp ports, allowed entry e.g., `--pt 22` or `--pu 1-65535` or `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning
+* `-t` or `--pt`, `-u` or `--pu` specify scanned TCP/UDP port ranges.
+* Allowed examples: `--pt 22`, `--pu 1-65535`, `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
 * `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
 * either `hostname`, or `ip-address`, which either is hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
 * All arguments can be in any order.
