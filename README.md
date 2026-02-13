@@ -4,10 +4,10 @@
 See deadlines in IS VUT.
 
 ### Evaluation
-You can get up to 7 points for working applications in compliance with the assignment, as well as demonstrating good programming skills.
-You can get up to 3 points for documentation.
-You can earn extra points for significant extension of your program's features.
-You cannot get more than 10 points from the project, but the points for extra effort can help you minimize any losses during the assesment of standard requirements.
+* Maximum project score is 20 points.
+* Up to 15 points: implementation quality and assignment compliance.
+* Up to 5 points: tests.
+* Oral defence and demonstration: up to 20-point penalization in case of inability to defend chosen programming constructs, insufficient understanding of own code, etc.
 
 ## Languages
 * C
