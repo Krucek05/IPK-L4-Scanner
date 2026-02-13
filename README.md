@@ -1,10 +1,7 @@
 # Project 1 - Multiple variants
 
 ## Deadlines
-| Date              | Description
-| ----------------- | -----------
-| 22. 3. 2025 23:59 | Registrations end
-| 23. 3. 2025 23:59 | Submission deadline
+See deadlines in IS VUT.
 
 ### Evaluation
 You can get up to 7 points for working applications in compliance with the assignment, as well as demonstrating good programming skills.
