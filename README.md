@@ -21,5 +21,5 @@ You cannot get more than 10 points from the project, but the points for extra ef
   * only points from the last academic year 23/24 are accepted;
   * last year's score `X / 20 × 10`;
 
-* [DELTA: L2/L3 scanner](https://git.fit.vutbr.cz/NESFIT/IPK-Projects/src/branch/master/Project_1/delta)
-* [OMEGA: L4 scanner](https://git.fit.vutbr.cz/NESFIT/IPK-Projects/src/branch/master/Project_1/omega)
+* [DELTA: L2/L3 scanner](delta/)
+* [OMEGA: L4 scanner](omega/)
