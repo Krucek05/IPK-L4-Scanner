@@ -1,5 +1,7 @@
 # Project 1 - DELTA: L2/L3 Scanner
 
+Contact person: pluskal@fit.vut.cz
+
 ## Assignment
 1. Create a simple network ICMP(v6), ARP/NDP scanner. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers.
 2. Create relevant tests for the project.
