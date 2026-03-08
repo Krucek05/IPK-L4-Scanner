@@ -5,5 +5,5 @@ This repository includes content copied from:
 
 Original authors (from git history of `Project_1`):
 - Daniel Dolejška (`dolejska@fit.vut.cz`)
-- Martin Vondráček (`dolejska@fit.vut.cz `)
+- Martin Vondráček (`ivondracek@fit.vut.cz`)
 - Vladimir Vesely (`veselyv@fit.vut.cz`)
