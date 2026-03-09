@@ -32,7 +32,7 @@ where:
 * `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
 * `-i eth0` (just one interface to scan through) or `--interface`.
   * If `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response during scanning of a host. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
+* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response during scanning of a host. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
 * `-s 192.168.1.0/24` or `--subnet fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., the `-s/--subnet` argument can be repeated when the program is called).
 * The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` or `--subnet` argument.
 * The application does not have to deal with the "bloat" of the `-s` or `--subnet` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e., attempting to ARP scan a network to which the computer is not directly connected).
