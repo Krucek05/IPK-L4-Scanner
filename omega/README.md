@@ -91,7 +91,7 @@ Program output (`stdout`) consists of one or more lines. Individual lines can be
 ```
 
 ```sh
-./ipk-l4-scan -i eth0 -t 80 www.fit.vutbr.cz
+./ipk-L4-scan -i eth0 -t 80 www.fit.vutbr.cz
 ```
 ```
 147.229.9.23 80 tcp open
