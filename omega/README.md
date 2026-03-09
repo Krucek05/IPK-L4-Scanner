@@ -22,31 +22,34 @@ Sends only SYN packets. It does not perform a complete 3-way-handshake. If an RS
 #### UDP scanning
 With UDP scanning, you can think of a given computer responding with an ICMP message of type 3, code 3 (port unreachable) when the port is *closed*. Consider the other ports as *open*.
 
-### Execution
+### Synopsis
 ```
-./ipk-L4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] [-w timeout] [hostname | ip-address]
+./ipk-L4-scan -i INTERFACE [-u PORTS] [-t PORTS] HOST [-w TIMEOUT] [-h | --help]
+```
+```
+./ipk-L4-scan -i
+```
+```
+./ipk-L4-scan -h
 ```
 ```
 ./ipk-L4-scan --help
-```
-```
-./ipk-L4-scan --interface
 ```
 
 where:
 
 * `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
-* `-i eth0` (just one interface to scan through) or `--interface`.
-  * If `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
-* `-t` or `--pt`, `-u` or `--pu` specify scanned TCP/UDP port ranges.
-* Allowed examples: `--pt 22`, `--pu 1-65535`, `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
-* either `hostname`, or `ip-address`, which either is hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
+* `-i eth0` (just one interface to scan through).
+  * If `-i` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
+* `-t` or `-u` specify scanned TCP/UDP port ranges.
+  * Allowed examples: `-t 22`, `-u 1-65535`, `-t 22,23,24`. The `-u` and `-t` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
+* `-w 3000` is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
+* _HOST_ which is either hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
 * All arguments can be in any order.
 
 ### Execution Examples
 ```
-./ipk-L4-scan --interface eth0 -u 53,67 2001:67c:1220:809::93e5:917
+./ipk-L4-scan -i eth0 -u 53,67 2001:67c:1220:809::93e5:917
 ./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz
 ```
 

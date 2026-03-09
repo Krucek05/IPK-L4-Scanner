@@ -16,32 +16,35 @@ The program can be terminated at any given moment with `SIGTERM` or `SIGINT` sig
 
 Scanning should be done and return results as fast as possible. During development and testing, try scanning only the computers you own or manage.
 
-### Execution
+### Synopsis
 ```
-./ipk-L2L3-scan [-i interface | --interface interface] [-w timeout] [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
+./ipk-L2L3-scan -i INTERFACE [-s SUBNET]... [-w TIMEOUT] [-h | --help]
+```
+```
+./ipk-L2L3-scan -i
+```
+```
+./ipk-L2L3-scan -h
 ```
 ```
 ./ipk-L2L3-scan --help
-```
-```
-./ipk-L2L3-scan --interface
 ```
 
 where:
 
 * `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
-* `-i eth0` (just one interface to scan through) or `--interface`.
-  * If `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response during scanning of a host. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
-* `-s 192.168.1.0/24` or `--subnet fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., the `-s/--subnet` argument can be repeated when the program is called).
-* The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` or `--subnet` argument.
-* The application does not have to deal with the "bloat" of the `-s` or `--subnet` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e., attempting to ARP scan a network to which the computer is not directly connected).
+* `-i eth0` (just one interface to scan through).
+  * If `-i` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
+* `-w 3000` is the timeout in milliseconds to wait for a response during scanning of a host. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
+* `-s 192.168.1.0/24` or `-s fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., **the `-s` argument can be repeated** when the program is called).
+* The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` argument.
+* The application does not have to deal with the "bloat" of the `-s` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e., attempting to ARP scan a network to which the computer is not directly connected).
 * All arguments can be in any order.
 
 ### Execution Examples
 ```
 ./ipk-L2L3-scan -i eth0 -w 1000 -s 192.168.0.0/25 -s 192.168.128.0/29
-./ipk-L2L3-scan --interface eth0 --wait 1000 --subnet fd00:cafe:0000:face::0/120
+./ipk-L2L3-scan -i eth0 -w 1000 -s fd00:cafe:0000:face::0/120
 ```
 
 ### Functionality Illustration
