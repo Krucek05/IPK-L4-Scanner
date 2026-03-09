@@ -1,15 +1,18 @@
 # Project 1 - OMEGA: L4 Scanner
 
+- Contact person: pluskal@vut.cz
+- Automated testing: ivondracek@fit.vut.cz
+
 ## Assignment
-1. Create a simple TCP and UDP network L4 scanner. The program will scan the specified hostname or IP address(es) (plural IP addresses in the case of multiple answers to DNS query) and ports. It will output to stdout port statuses (open, filtered, closed) (7 pts.) 
-2. Create relevant manual/documentation for the project (3 pts.)
+1. Create a simple TCP and UDP network L4 scanner. The program will scan the specified hostname or IP address(es) (plural IP addresses in the case of multiple answers to DNS query) and ports. It will output to stdout port statuses (open, filtered, closed).
+2. Create relevant tests for the project.
 
 ## Specification
-The application scans the selected ports of device (translated onto one or more IPv4/IPv6 addresses) on a given network interface. 
+The application scans selected ports of a device (translated onto one or more IPv4/IPv6 addresses) on a given network interface.
 
 Packets/Frames should be sent using sockets. If needed, you can eavesdrop on the responses using the libpcap library.
 
-The program can be terminated at any given moment with `Ctrl + C` sequence.
+The program can be terminated at any given moment with `SIGTERM` or `SIGINT` signals (<kbd>Ctrl</kbd> + <kbd>C</kbd> sequence).
 
 Scanning should be done and return results as fast as possible. During development and testing, try scanning only the computers you own or manage.
 
@@ -19,38 +22,41 @@ Sends only SYN packets. It does not perform a complete 3-way-handshake. If an RS
 #### UDP scanning
 With UDP scanning, you can think of a given computer responding with an ICMP message of type 3, code 3 (port unreachable) when the port is *closed*. Consider the other ports as *open*.
 
-### Execution
+### Synopsis
 ```
-./ipk-l4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] {-w timeout} [hostname | ip-address]
-```
-```
-./ipk-l4-scan --help
+./ipk-L4-scan -i INTERFACE [-u PORTS] [-t PORTS] HOST [-w TIMEOUT] [-h | --help]
 ```
 ```
-./ipk-l4-scan --interface
+./ipk-L4-scan -i
 ```
 ```
-./ipk-l4-scan
+./ipk-L4-scan -h
+```
+```
+./ipk-L4-scan --help
 ```
 
 where:
 
-* `-h`/`--help` writes usage instructions to `stdout` and terminates
-* `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed (additional information beyond the interface list is welcome but not required).
-* `-t` or `--pt`, `-u` or `--pu` port-ranges - scanned tcp/udp ports, allowed entry e.g., `--pt 22` or `--pu 1-65535` or `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
-* either `hostname`, or `ip-address`, which either is hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
+* `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
+* `-i eth0` (just one interface to scan through).
+  * If `-i` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
+* `-t` or `-u` specify scanned TCP/UDP port ranges.
+  * Allowed examples: `-t 22`, `-u 1-65535`, `-t 22,23,24`. The `-u` and `-t` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
+  * It is not required to handle combinations such as `-t 22,25-30,35`.
+* `-w 3000` is the timeout in milliseconds to wait for a response during a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
+* _HOST_ which is either hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
 * All arguments can be in any order.
 
 ### Execution Examples
 ```
-./ipk-l4-scan --interface eth0 -u 53,67 2001:67c:1220:809::93e5:917
-./ipk-l4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz
+./ipk-L4-scan -i eth0 -u 53,67 2001:67c:1220:809::93e5:917
+./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz
 ```
 
 ### Functionality Illustration
 ```sh
-./ipk-l4-scan -i eth0 --pt 21,22,143 --pu 53,67 localhost
+./ipk-L4-scan -i lo -t 21,22,143 -u 53,67 localhost
 ```
 ```
 127.0.0.1 21 tcp closed
@@ -62,23 +68,20 @@ where:
 
 ### Output Format
 
-> ⚠️ 
-<span style="color:orange">
-The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.
-~~Illustrated command line output can be customised to provide relevant information in a more structured way.~~
-</span>
+> ⚠️ <span style="color:orange">The application is going to be subject to automated testing. It is of utmost
+> importance for the application to write the result to `stdout` exactly as specified.</span>
 
 Program output (`stdout`) consists of one or more lines. Individual lines can be in any order. Each line contains values separated by space: scanned IP address (IPv4 or IPv6), port number, protocol type (`tcp` or `udp`), port state (`open`, `filtered`, or `closed`).
 
 ```sh
-./ipk-l4-scan -i eth0 -t 22 localhost
+./ipk-L4-scan -i lo -t 22 localhost
 ```
 ```
 127.0.0.1 22 tcp open
 ```
 
 ```sh
-./ipk-l4-scan -i eth0 -t 21,22 -u 22,21 localhost
+./ipk-L4-scan -i lo -t 21,22 -u 22,21 localhost
 ```
 ```
 127.0.0.1 21 tcp closed
@@ -88,7 +91,7 @@ Program output (`stdout`) consists of one or more lines. Individual lines can be
 ```
 
 ```sh
-./ipk-l4-scan -i eth0 -t 80 www.fit.vutbr.cz
+./ipk-L4-scan -i eth0 -t 80 www.fit.vutbr.cz
 ```
 ```
 147.229.9.23 80 tcp open

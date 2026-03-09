@@ -1,51 +1,55 @@
 # Project 1 - DELTA: L2/L3 Scanner
 
+- Contact person: pluskal@vut.cz
+- Automated testing: ivondracek@fit.vut.cz
+
 ## Assignment
-1. Create a simple network ICMP(v6), ARP/NDP scanner in C/C++/C#. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers (7 pts.) 
-2. Create relevant manual/documentation for the project (3 pts.)
+1. Create a simple network ICMP(v6), ARP/NDP scanner. The program discovers what devices are available from a selected range of IP addresses. It prints to standard output the availability status of the given IP addresses at the L2 and L3 layers.
+2. Create relevant tests for the project.
 
 ## Specification
 The application scans for presence of L2 and L3 devices on given network segment(s). 
 
 Packets/Frames should be sent using raw sockets. If needed, you can eavesdrop on the responses using the libpcap library.
 
-The program can be terminated at any given moment with `Ctrl + C` sequence.
+The program can be terminated at any given moment with `SIGTERM` or `SIGINT` signals (<kbd>Ctrl</kbd> + <kbd>C</kbd> sequence).
 
 Scanning should be done and return results as fast as possible. During development and testing, try scanning only the computers you own or manage.
 
-### Execution
+### Synopsis
 ```
-./ipk-l2l3-scan [-i interface | --interface interface] {-w timeout} [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
-```
-```
-./ipk-l2l3-scan --help
+./ipk-L2L3-scan -i INTERFACE [-s SUBNET]... [-w TIMEOUT] [-h | --help]
 ```
 ```
-./ipk-l2l3-scan --interface
+./ipk-L2L3-scan -i
 ```
 ```
-./ipk-l2l3-scan
+./ipk-L2L3-scan -h
+```
+```
+./ipk-L2L3-scan --help
 ```
 
 where:
 
-* `-h`/`--help` writes usage instructions to `stdout` and terminates
-* `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed (additional information beyond the interface list is welcome but not required).
-* `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
-* `-s 192.168.1.0/24` or `--subnet fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., the `-s/--subnet` argument can be repeated when the program is called).
-* The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` or `--subnet` argument.
-* The application does not have to deal with the "bloat" of the `-s` or `--subnet` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e.,attempting to ARP scan a network to which the computer is not directly connected).
+* `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
+* `-i eth0` (just one interface to scan through).
+  * If `-i` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
+* `-w 3000` is the timeout in milliseconds to wait for a response during a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
+* `-s 192.168.1.0/24` or `-s fd00:cafe:0000:face::0/120` specifies which segments to scan using IPv4 or IPv6. There can be multiple segments to be scanned (i.e., **the `-s` argument can be repeated** when the program is called).
+  * The application must be able to infer the correct network address and the resulting number of hosts to be scanned from the user input of the `-s` argument.
+  * The application does not have to deal with the "bloat" of the `-s` argument input with respect to the number of hosts being scanned (e.g., too short netmask or prefix length, for instance `-s 10.0.0.0/8`) or the location of the segment being scanned (i.e., attempting to ARP scan a network to which the computer is not directly connected).
 * All arguments can be in any order.
 
 ### Execution Examples
 ```
-./ipk-l2l3-scan -i eth0 -w 1000 -s 192.168.0.0/25 -s 192.168.128.0/29
-./ipk-l2l3-scan --interface eth0 --wait 1000 --subnet fd00:cafe:0000:face::0/120
+./ipk-L2L3-scan -i eth0 -w 1000 -s 192.168.0.0/25 -s 192.168.128.0/29
+./ipk-L2L3-scan -i eth0 -w 1000 -s fd00:cafe:0000:face::0/120
 ```
 
 ### Functionality Illustration
 ```sh
-./ipk-l2l3-scan -i eth0 -w 1000 -s 192.168.0.5/25 -s 192.168.0.128/29 -s fd00:cafe:0000:face::1/126
+./ipk-L2L3-scan -i eth0 -w 1000 -s 192.168.0.5/25 -s 192.168.0.128/29 -s fd00:cafe:0000:face::1/126
 ```
 ```
 Scanning ranges:
@@ -64,11 +68,7 @@ fd00:cafe:0000:face::3 ndp OK (a8-5e-45-af-7c-60), icmpv6 FAIL
 
 ### Output Format
 
-> ⚠️ 
-<span style="color:orange">
-The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.
-~~Illustrated command line output can be customised to provide relevant information in a more structured way.~~
-</span>
+> ⚠️ <span style="color:orange"> The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.</span>
 
 Program output (`stdout`) consists of 2 ordered sections: 1) scanning ranges summary, then 2) scan results. These sections are separated by an empty line.
 
@@ -77,7 +77,7 @@ The scan ranges summary section starts with a literal `Scanning ranges:` single 
 The scan results section consists of one or more lines. Individual lines can be in any order. Each line starts with the scanned host IP address followed by ` ` and ARP/ND scan, then followed by `, ` and ICMP/ICMPv6 scan. Scan results must be marked by `arp`/`ndp`/`icmpv4`/`icmpv6` literals. ARP/ND scan result is either `OK` followed by space ` ` with MAC address in parentheses or `FAIL`. ICMP/ICMPv6 scan result is either `OK` or `FAIL`.
 
 ```sh
-./ipk-l2l3-scan -i eth0 -s 192.168.0.1/30
+./ipk-L2L3-scan -i eth0 -s 192.168.0.1/30
 ```
 ```
 Scanning ranges:
@@ -88,7 +88,7 @@ Scanning ranges:
 ```
 
 ```sh
-./ipk-l2l3-scan -i eth0 -s 192.168.0.1/30 -s 192.168.0.130/29
+./ipk-L2L3-scan -i eth0 -s 192.168.0.1/30 -s 192.168.0.130/29
 ```
 ```
 Scanning ranges:
