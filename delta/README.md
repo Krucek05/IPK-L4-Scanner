@@ -1,6 +1,6 @@
 # Project 1 - DELTA: L2/L3 Scanner
 
-- Contact person: pluskal@fit.vut.cz
+- Contact person: pluskal@vut.cz
 - Automated testing: ivondracek@fit.vut.cz
 
 ## Assignment

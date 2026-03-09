@@ -1,6 +1,6 @@
 # Project 1 - OMEGA: L4 Scanner
 
-- Contact person: pluskal@fit.vut.cz
+- Contact person: pluskal@vut.cz
 - Automated testing: ivondracek@fit.vut.cz
 
 ## Assignment
