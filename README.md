@@ -7,6 +7,7 @@ See deadlines in IS VUT.
 * ALPHA: Last year's points from Project 1
 * [DELTA: L2/L3 scanner](delta/)
 * [OMEGA: L4 scanner](omega/)
+* If you are repeating the course, you MUST NOT register the same assignment variant as in your previous attempt.
 
 ## Evaluation
 * The project will be evaluated by automated tests.
