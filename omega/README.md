@@ -44,7 +44,7 @@ where:
 * `-t` or `-u` specify scanned TCP/UDP port ranges.
   * Allowed examples: `-t 22`, `-u 1-65535`, `-t 22,23,24`. The `-u` and `-t` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
   * It is not required to handle combinations such as `-t 22,25-30,35`.
-* `-w 3000` is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
+* `-w 3000` is the timeout in milliseconds to wait for a response during a single port scan. This parameter is optional, in its absence the value 1000 (i.e., one second) is used.
 * _HOST_ which is either hostname (e.g., merlin.fit.vutbr.cz) or IPv4/IPv6 address of scanned device.
 * All arguments can be in any order.
 
