@@ -38,7 +38,7 @@ With UDP scanning, you can think of a given computer responding with an ICMP mes
 
 where:
 
-* `-h`/`--help` writes usage instructions to `stdout` and terminates
+* `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
 * `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed (additional information beyond the interface list is welcome but not required).
 * `-t` or `--pt`, `-u` or `--pu` specify scanned TCP/UDP port ranges.
 * Allowed examples: `--pt 22`, `--pu 1-65535`, `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
@@ -54,7 +54,7 @@ where:
 
 ### Functionality Illustration
 ```sh
-./ipk-L4-scan -i eth0 --pt 21,22,143 --pu 53,67 localhost
+./ipk-L4-scan -i lo -t 21,22,143 -u 53,67 localhost
 ```
 ```
 127.0.0.1 21 tcp closed
@@ -72,14 +72,14 @@ where:
 Program output (`stdout`) consists of one or more lines. Individual lines can be in any order. Each line contains values separated by space: scanned IP address (IPv4 or IPv6), port number, protocol type (`tcp` or `udp`), port state (`open`, `filtered`, or `closed`).
 
 ```sh
-./ipk-L4-scan -i eth0 -t 22 localhost
+./ipk-L4-scan -i lo -t 22 localhost
 ```
 ```
 127.0.0.1 22 tcp open
 ```
 
 ```sh
-./ipk-L4-scan -i eth0 -t 21,22 -u 22,21 localhost
+./ipk-L4-scan -i lo -t 21,22 -u 22,21 localhost
 ```
 ```
 127.0.0.1 21 tcp closed
