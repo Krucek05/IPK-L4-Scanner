@@ -9,6 +9,17 @@ See deadlines in IS VUT.
 * [OMEGA: L4 scanner](omega/)
 * If you are repeating the course, you MUST NOT register the same assignment variant as in your previous attempt.
 
+## Dry Run Evaluation
+
+* Students MAY submit their solution to IS VUT one week before final deadline for early threshold feedback.
+* Submitted solutions WILL be evaluated using automated tests.
+* Students WILL receive only threshold result without any additional comments. Most importantly, students WILL 
+  receive feedback, whether their solution was at least successfully compiled and started in the reference environment.
+  The purpose of the dry run evaluation is early detection of submission mistakes which would otherwise result in
+  0 points.
+* Participation in the dry run evaluation has no effect on final evaluation. Results from the dry run evaluation 
+  do not provide any guarantee for final evaluation.
+
 ## Evaluation
 * The project will be evaluated by automated tests.
 * Student-written automated tests are evaluated as part of the project assessment.
