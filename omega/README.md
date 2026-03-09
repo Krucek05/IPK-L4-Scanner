@@ -11,7 +11,7 @@ The application scans selected ports of a device (translated onto one or more IP
 
 Packets/Frames should be sent using sockets. If needed, you can eavesdrop on the responses using the libpcap library.
 
-The program can be terminated at any given moment with `Ctrl + C` sequence.
+The program can be terminated at any given moment with `SIGTERM` or `SIGINT` signals (<kbd>Ctrl</kbd> + <kbd>C</kbd> sequence).
 
 Scanning should be done and return results as fast as possible. During development and testing, try scanning only the computers you own or manage.
 
