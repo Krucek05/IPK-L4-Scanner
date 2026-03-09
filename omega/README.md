@@ -32,14 +32,12 @@ With UDP scanning, you can think of a given computer responding with an ICMP mes
 ```
 ./ipk-L4-scan --interface
 ```
-```
-./ipk-L4-scan
-```
 
 where:
 
 * `-h`/`--help` writes usage instructions to `stdout` and terminates with `0` exit code.
-* `-i eth0` (just one interface to scan through) or `--interface`. If this parameter is not specified (and any other parameters as well), or if only `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
+* `-i eth0` (just one interface to scan through) or `--interface`.
+  * If `-i`/`--interface` is specified without a value (and any other parameters are unspecified), a list of active interfaces is printed to `stdout` and the program terminates with `0` exit code (additional information beyond the interface list is welcome but not required).
 * `-t` or `--pt`, `-u` or `--pu` specify scanned TCP/UDP port ranges.
 * Allowed examples: `--pt 22`, `--pu 1-65535`, `--pt 22,23,24`. The `--pu` and `--pt` arguments can be specified separately, i.e. they do not have to occur both at once if the user wants only TCP or only UDP scanning.
 * `-w 3000` or `--wait 3000`, is the timeout in milliseconds to wait for a response for a single port scan. This parameter is optional, in its absence the value 5000 (i.e., five seconds) is used.
