@@ -67,11 +67,7 @@ fd00:cafe:0000:face::3 ndp OK (a8-5e-45-af-7c-60), icmpv6 FAIL
 
 ### Output Format
 
-> ⚠️ 
-<span style="color:orange">
-The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.
-~~Illustrated command line output can be customised to provide relevant information in a more structured way.~~
-</span>
+> ⚠️ <span style="color:orange"> The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.</span>
 
 Program output (`stdout`) consists of 2 ordered sections: 1) scanning ranges summary, then 2) scan results. These sections are separated by an empty line.
 

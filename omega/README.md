@@ -66,11 +66,8 @@ where:
 
 ### Output Format
 
-> ⚠️ 
-<span style="color:orange">
-The application is going to be subject to automated testing. It is of utmost importance for the application to write the result to `stdout` exactly as specified.
-~~Illustrated command line output can be customised to provide relevant information in a more structured way.~~
-</span>
+> ⚠️ <span style="color:orange">The application is going to be subject to automated testing. It is of utmost
+> importance for the application to write the result to `stdout` exactly as specified.</span>
 
 Program output (`stdout`) consists of one or more lines. Individual lines can be in any order. Each line contains values separated by space: scanned IP address (IPv4 or IPv6), port number, protocol type (`tcp` or `udp`), port state (`open`, `filtered`, or `closed`).
 
