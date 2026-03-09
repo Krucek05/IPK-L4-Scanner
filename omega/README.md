@@ -23,16 +23,16 @@ With UDP scanning, you can think of a given computer responding with an ICMP mes
 
 ### Execution
 ```
-./ipk-l4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] [-w timeout] [hostname | ip-address]
+./ipk-L4-scan [-i interface | --interface interface] [--pu port-ranges | --pt port-ranges | -u port-ranges | -t port-ranges] [-w timeout] [hostname | ip-address]
 ```
 ```
-./ipk-l4-scan --help
+./ipk-L4-scan --help
 ```
 ```
-./ipk-l4-scan --interface
+./ipk-L4-scan --interface
 ```
 ```
-./ipk-l4-scan
+./ipk-L4-scan
 ```
 
 where:
@@ -47,13 +47,13 @@ where:
 
 ### Execution Examples
 ```
-./ipk-l4-scan --interface eth0 -u 53,67 2001:67c:1220:809::93e5:917
-./ipk-l4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz
+./ipk-L4-scan --interface eth0 -u 53,67 2001:67c:1220:809::93e5:917
+./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz
 ```
 
 ### Functionality Illustration
 ```sh
-./ipk-l4-scan -i eth0 --pt 21,22,143 --pu 53,67 localhost
+./ipk-L4-scan -i eth0 --pt 21,22,143 --pu 53,67 localhost
 ```
 ```
 127.0.0.1 21 tcp closed
@@ -74,14 +74,14 @@ The application is going to be subject to automated testing. It is of utmost imp
 Program output (`stdout`) consists of one or more lines. Individual lines can be in any order. Each line contains values separated by space: scanned IP address (IPv4 or IPv6), port number, protocol type (`tcp` or `udp`), port state (`open`, `filtered`, or `closed`).
 
 ```sh
-./ipk-l4-scan -i eth0 -t 22 localhost
+./ipk-L4-scan -i eth0 -t 22 localhost
 ```
 ```
 127.0.0.1 22 tcp open
 ```
 
 ```sh
-./ipk-l4-scan -i eth0 -t 21,22 -u 22,21 localhost
+./ipk-L4-scan -i eth0 -t 21,22 -u 22,21 localhost
 ```
 ```
 127.0.0.1 21 tcp closed

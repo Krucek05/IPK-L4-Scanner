@@ -17,16 +17,16 @@ Scanning should be done and return results as fast as possible. During developme
 
 ### Execution
 ```
-./ipk-l2l3-scan [-i interface | --interface interface] [-w timeout] [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
+./ipk-L2L3-scan [-i interface | --interface interface] [-w timeout] [-s ipv4-subnet | -s ipv6-subnet | --subnet ipv4-subnet | --subnet ipv6-subnet]
 ```
 ```
-./ipk-l2l3-scan --help
+./ipk-L2L3-scan --help
 ```
 ```
-./ipk-l2l3-scan --interface
+./ipk-L2L3-scan --interface
 ```
 ```
-./ipk-l2l3-scan
+./ipk-L2L3-scan
 ```
 
 where:
@@ -41,13 +41,13 @@ where:
 
 ### Execution Examples
 ```
-./ipk-l2l3-scan -i eth0 -w 1000 -s 192.168.0.0/25 -s 192.168.128.0/29
-./ipk-l2l3-scan --interface eth0 --wait 1000 --subnet fd00:cafe:0000:face::0/120
+./ipk-L2L3-scan -i eth0 -w 1000 -s 192.168.0.0/25 -s 192.168.128.0/29
+./ipk-L2L3-scan --interface eth0 --wait 1000 --subnet fd00:cafe:0000:face::0/120
 ```
 
 ### Functionality Illustration
 ```sh
-./ipk-l2l3-scan -i eth0 -w 1000 -s 192.168.0.5/25 -s 192.168.0.128/29 -s fd00:cafe:0000:face::1/126
+./ipk-L2L3-scan -i eth0 -w 1000 -s 192.168.0.5/25 -s 192.168.0.128/29 -s fd00:cafe:0000:face::1/126
 ```
 ```
 Scanning ranges:
@@ -79,7 +79,7 @@ The scan ranges summary section starts with a literal `Scanning ranges:` single 
 The scan results section consists of one or more lines. Individual lines can be in any order. Each line starts with the scanned host IP address followed by ` ` and ARP/ND scan, then followed by `, ` and ICMP/ICMPv6 scan. Scan results must be marked by `arp`/`ndp`/`icmpv4`/`icmpv6` literals. ARP/ND scan result is either `OK` followed by space ` ` with MAC address in parentheses or `FAIL`. ICMP/ICMPv6 scan result is either `OK` or `FAIL`.
 
 ```sh
-./ipk-l2l3-scan -i eth0 -s 192.168.0.1/30
+./ipk-L2L3-scan -i eth0 -s 192.168.0.1/30
 ```
 ```
 Scanning ranges:
@@ -90,7 +90,7 @@ Scanning ranges:
 ```
 
 ```sh
-./ipk-l2l3-scan -i eth0 -s 192.168.0.1/30 -s 192.168.0.130/29
+./ipk-L2L3-scan -i eth0 -s 192.168.0.1/30 -s 192.168.0.130/29
 ```
 ```
 Scanning ranges:
