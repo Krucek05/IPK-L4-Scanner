@@ -10,6 +10,7 @@ See deadlines in IS VUT.
 
 ## Evaluation
 * The project will be evaluated by automated tests.
+* Student-written automated tests are evaluated as part of the project assessment.
 * Evaluation results will be published in IS VUT.
 * If a student does not agree with the evaluation, an oral defence will be held. The oral defence will take place within one week after results are published; registration information will be posted in IS VUT.
 
