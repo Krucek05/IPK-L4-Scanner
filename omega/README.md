@@ -1,6 +1,7 @@
 # Project 1 - OMEGA: L4 Scanner
 
-Contact person: pluskal@fit.vut.cz
+- Contact person: pluskal@fit.vut.cz
+- Automated testing: ivondracek@fit.vut.cz
 
 ## Assignment
 1. Create a simple TCP and UDP network L4 scanner. The program will scan the specified hostname or IP address(es) (plural IP addresses in the case of multiple answers to DNS query) and ports. It will output to stdout port statuses (open, filtered, closed).
