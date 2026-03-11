@@ -1,1 +1,32 @@
-.idea
+.idea/
+
+# Build output
+ipk-L4-scan
+*.o
+*.a
+*.so
+*.out
+
+# Debug / profiling
+*.dSYM/
+*.su
+*.idb
+*.pdb
+gmon.out
+core
+vgcore.*
+
+# Temporary / editor files
+*.swp
+*.swo
+*~
+*.bak
+
+# CMake (if ever used)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Submission archive
+*.zip
+
