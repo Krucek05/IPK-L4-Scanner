@@ -1,17 +1,26 @@
 CC      = gcc
-CFLAGS  = -std=c17 -Wall -Wextra -pedantic
+CFLAGS  = -std=c17 -Wall -Wextra -Wpedantic
+LDFLAGS = -lpcap
 TARGET  = ipk-L4-scan
-SRCS    = src/L4-scan.c
+SRCS    = $(wildcard src/*.c)
+OBJS    = $(SRCS:.c=.o)
+HDRS    = $(wildcard src/*.h)
 
-.PHONY: all clean NixDevShellName
+.PHONY: all clean test NixDevShellName
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) -o $@ $^
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+%.o: %.c $(HDRS)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+test:
+	@echo "No tests implemented yet."
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 NixDevShellName:
 	@echo c
