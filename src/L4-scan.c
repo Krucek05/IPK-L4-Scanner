@@ -38,7 +38,6 @@ int interface(void) {
     return 0;
 }
 
-
 // print_interfacees(Config *config) {
 //     printf("Available interfaces:\n");
 //     // todo: implement interface listing
@@ -94,26 +93,6 @@ int parse_ports(Config *config, bool *ports) {
     return OK;
 }
 
-
-int tcp_ports(Config *config) {
-    int count = config->timeout_ms;
-    return OK;
-    count++;
-}
-
-int udp_ports(Config *config) {
-
-    int count = config->timeout_ms;
-
-    count++;
-    return OK;
-}
-
-int timeout(void) {
-
-    return OK;
-}
-
 int cli_argument_parsing(int argc, char *argv[], Config *config) {
     if(argc == 1){
         fprintf(stderr, "Error: No arguments provided. Use -h or --help for usage information.\n");
@@ -131,16 +110,20 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
                 config->interface_name = argv[i + 1];
                 i++; // Skip the next argument since it's the interface name
             }else {
-                // print_interfacees(config);
+                 if (argc == 2) { // Nothing else was specified
+                    interface();
+                    exit(0); 
+                } else {
+                    fprintf(stderr, "Error: Wrong input, use -h for help\n");
+                    return ERROR;
+                }
             }
-            interface();
         }
 
-        if (strcmp(argv[i], "-t") == 0){
+        else if (strcmp(argv[i], "-t") == 0){
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 config->port_string = argv[i + 1];
                 i++;
-                tcp_ports(config);
                 if (parse_ports(config, config->tcp_ports) != OK)
                     return ERROR;
             } else {
@@ -149,11 +132,10 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
             }
         }
 
-        if (strcmp(argv[i], "-u") == 0){
+        else if (strcmp(argv[i], "-u") == 0){
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 config->port_string = argv[i + 1];
                 i++;
-                udp_ports(config);
                 if (parse_ports(config, config->udp_ports) != OK)
                     return ERROR;
             } else {
@@ -162,27 +144,68 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
             }
         }
 
-        if (strcmp(argv[i], "-w") == 0){
-            timeout();
+        else if (strcmp(argv[i], "-w") == 0){
+            if(i + 1 >= argc || argv[i + 1][0] == '-') {
+                fprintf(stderr, "Error: Missing timeout value for -w option.\n");
+                return ERROR;
+            }
+            char *timeout_string = argv[i+1];
+            char *end;
+            long timeout = strtol(timeout_string, &end, 10);
+            if(*end == 0){
+                if(timeout > 0){
+                    config->timeout_ms = timeout;
+                } else {
+                    fprintf(stderr, "Error: Wrong timeout input\n");
+                return ERROR;
+                }
+
+            } else {
+                fprintf(stderr, "Error: Wrong timeout input\n");
+                return ERROR;
+            }
+            i++;
+        }
+        else {
+             if (config->server_hostname != NULL) {
+                fprintf(stderr, "Error: Multiple hosts specified.\n");
+                return ERROR;
+            }
+            config->server_hostname = argv[i];
         }
     }
 
+    if (config->server_hostname == NULL || config->interface_name == NULL) {
+        fprintf(stderr, "Error: HOST and -i INTERFACE are strictly required.\n");
+        return ERROR;
+    }
     return OK;
 }
 
-
 int main(int argc, char *argv[]) {
     
-    Config *config = malloc(sizeof(Config));
+    Config *config = calloc(1, sizeof(Config));
     if (!config) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
         return MALLOC_ERROR;
     }
-
+    
+    config->timeout_ms = DEFAULT_TIMEOUT_MS;
     if (cli_argument_parsing(argc, argv, config) != OK) {
         free(config);
         return ERROR;
     }
 
+    if (run_tcp_scan(config) != OK) {
+        free(config);
+        return ERROR;
+    }
+
+    if (run_udp_scan(config) != OK) {
+        free(config);
+        return ERROR;
+    }
+
+    free(config);
     return 0;
 }

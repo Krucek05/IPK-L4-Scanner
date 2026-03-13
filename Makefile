@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -std=c17 -Wall -Wextra -Wpedantic
+CFLAGS  = -std=c17 -Wall -Wextra -Wpedantic -D_DEFAULT_SOURCE
 LDFLAGS = -lpcap
 TARGET  = ipk-L4-scan
 SRCS    = $(wildcard src/*.c)
