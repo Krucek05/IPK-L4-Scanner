@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -std=c17 -Wall -Wextra -Wpedantic -D_DEFAULT_SOURCE
+CFLAGS  = -std=c17 -Wall -Wextra -Wpedantic -D_DEFAULT_SOURCE -D_GNU_SOURCE
 LDFLAGS = -lpcap
 TARGET  = ipk-L4-scan
 SRCS    = $(wildcard src/*.c)
@@ -16,8 +16,11 @@ $(TARGET): $(OBJS)
 %.o: %.c $(HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-test:
-	@echo "No tests implemented yet."
+test: $(TARGET)
+	@echo "Running tests..."
+	@chmod +x tests/test_nmap_comparison.py
+	./tests/test_nmap_comparison.py 127.0.0.1 -i lo
+	./tests/test_parsing.sh
 
 clean:
 	rm -f $(OBJS) $(TARGET)

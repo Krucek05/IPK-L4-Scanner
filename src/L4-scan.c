@@ -2,7 +2,10 @@
 // Author: Kristian Rucek > xrucekk00
 
 
-#include "L4.scan.h"
+#include "L4-scan.h"
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+
 
 void print_help(void) {
     printf("Usage:\n");
@@ -71,7 +74,15 @@ int parse_ports(Config *config, bool *ports) {
         if (dash) { // Range of ports
             *dash = '\0';
             int start = parse_single_port(token);
+            if (start == ERROR) {
+                free(port_string_copy);
+                return ERROR;
+            }
             int end   = parse_single_port(dash + 1);
+            if (end == ERROR) {
+                free(port_string_copy);
+                return ERROR;
+            }
             if (start < 0 || end < 0 || start > end) {
                 free(port_string_copy);
                 return ERROR;
@@ -110,11 +121,22 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
                 config->interface_name = argv[i + 1];
                 i++; // Skip the next argument since it's the interface name
             }else {
-                 if (argc == 2) { // Nothing else was specified
-                    interface();
+                 if (argc == 2) { 
+                    struct ifaddrs *ifaddr, *ifa;
+                    if (getifaddrs(&ifaddr) == -1) {
+                        perror("getifaddrs");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+                        if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET)
+                            continue;
+                        printf("%s\n", ifa->ifa_name);
+                    }
+                    freeifaddrs(ifaddr);
                     exit(0); 
                 } else {
-                    fprintf(stderr, "Error: Wrong input, use -h for help\n");
+                    fprintf(stderr, "Error: Missing interface name for -i option.\n");
                     return ERROR;
                 }
             }
