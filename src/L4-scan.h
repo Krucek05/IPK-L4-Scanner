@@ -1,13 +1,15 @@
 #ifndef L4_SCAN_H
 #define L4_SCAN_H
 
-// This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
-// Author: Kristian Rucek > xrucekk00
+/**
+ * IPK Project 1 - OMEGA: L4 Port Scanner
+ * TCP and UDP port scanning using raw sockets and libpcap
+ * Author: Kristian Rucek (xrucekk00)
+ */
 
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <errno.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
@@ -24,6 +26,7 @@
 #define MAX_PORTS 65536
 #define MY_RANDOM_PORT 54321
 #define SEQ_NUM 123456789
+#define SLIDING_WINDOW_SIZE 65535
 
 typedef enum{
   OK,
@@ -51,23 +54,20 @@ typedef struct{
     int timeout_ms;
 } Config;
 
+/* Command-line parsing and main functions */
+
+/** Print usage help and exit information */
 void print_help(void);
 
-int interface(void);
-
-int parse_ports(Config *config, bool *ports);
-
-int tcp_ports(Config *config);
-
-int udp_ports(Config *config);
-
-int timeout(void);
-
+/** Parse command-line arguments into Config structure */
 int cli_argument_parsing(int argc, char *argv[], Config *config);
 
-bool has_selected_ports(const bool *ports);
+/* Scanning functions */
 
+/** Run TCP port scanning for configured targets and ports */
 int run_tcp_scan(const Config *config);
+
+/** Run UDP port scanning for configured targets and ports */
 int run_udp_scan(const Config *config);
 
-#endif // L4_SCAN_H
+#endif /* L4_SCAN_H */
