@@ -36,6 +36,8 @@ int checksum (const void *data, size_t length) {
 int get_local_ip_address(const char *target_interface_name, int family, void *result_ip) {
     struct ifaddrs *interface_list_head;
     struct ifaddrs *current_interface;
+    bool ipv4_candidate_found = false;
+    struct in_addr ipv4_candidate;
     bool ipv6_candidate_found = false;
     struct in6_addr ipv6_candidate;
 
@@ -71,6 +73,12 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
                 freeifaddrs(interface_list_head);
                 return OK;
             }
+
+            // Keep first matching IPv4 as fallback (needed e.g. for lo -> 127.0.0.1).
+            if (!ipv4_candidate_found) {
+                ipv4_candidate = ipv4_address->sin_addr;
+                ipv4_candidate_found = true;
+            }
             continue;
         }
         // For IPv6, we should use the first global address on the selected interface, 
@@ -86,6 +94,12 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
         }
 
         *(struct in6_addr *)result_ip = ipv6_address->sin6_addr;
+        freeifaddrs(interface_list_head);
+        return OK;
+    }
+
+    if (family == AF_INET && ipv4_candidate_found) {
+        *(struct in_addr *)result_ip = ipv4_candidate;
         freeifaddrs(interface_list_head);
         return OK;
     }
@@ -474,7 +488,7 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
 
     if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != OK) {
         if (target->ai_family == AF_INET6) {
-            fprintf(stderr, "No IPv6 route to %s via interface %s\n", target_ip_string,
+            fprintf(stderr, " 6 route to %s via interface %s\n", target_ip_string,
                 config->interface_name ? config->interface_name : "any");
         } else {
             fprintf(stderr, "No IPv4 route to %s via interface %s\n", target_ip_string,
