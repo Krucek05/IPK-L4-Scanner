@@ -4,67 +4,137 @@
 #include "L4-scan.h"
 #include "tcp_scan.h"
 #include "addr_helpers.h"
+#include <netinet/ip6.h>
+#include <net/if.h>
 #include <time.h>
 #include <sys/time.h>
 
-// check if packet was not corrupted
+/* ========================= Helpers ========================= */
+
+// check if packet was not corrupted 
+// Checksum calculation adapted from https://tools.ietf.org/html/rfc1071 and AI suggestions, but implemented for my usage
 int checksum (const void *data, size_t length) {
     uint32_t sum = 0;
     const uint16_t *ptr = data;
 
-    while (length > 1) {
+    while (length > CHECKSUM_SINGLE_BYTE_REMAINDER) {
         sum += *ptr++;
-        length -= 2;
+        length -= CHECKSUM_WORD_SIZE_BYTES;
     }
 
     if (length > 0) {
         sum += *(const uint8_t *)ptr;
     }
 
-    while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
+    while (sum >> CHECKSUM_CARRY_SHIFT) {
+        sum = (sum & CHECKSUM_LOW_16_MASK) + (sum >> CHECKSUM_CARRY_SHIFT);
     }
     return ~sum;
 }
 
 // Determines the local IP address
-int get_local_ip_address(const char *target_interface_name, struct in_addr *result_ip) {
+int get_local_ip_address(const char *target_interface_name, int family, void *result_ip) {
     struct ifaddrs *interface_list_head;
     struct ifaddrs *current_interface;
+    bool ipv6_candidate_found = false;
+    struct in6_addr ipv6_candidate;
+
+    if (result_ip == NULL || (family != AF_INET && family != AF_INET6)) {
+        return ERROR;
+    }
 
     if (getifaddrs(&interface_list_head) == -1) {
-        fprintf(stderr,"getifaddrs");
+        fprintf(stderr,"getifaddrs\n");
         return ERROR;
     }
     
-    if (target_interface_name != NULL) {
-        for (current_interface = interface_list_head; current_interface != NULL; current_interface = current_interface->ifa_next) {
-            if (current_interface->ifa_addr == NULL || current_interface->ifa_addr->sa_family != AF_INET) {
-                continue;
-            }
+    if (target_interface_name == NULL) {
+        freeifaddrs(interface_list_head);
+        return ERROR;
+    }
 
-            if (strcmp(current_interface->ifa_name, target_interface_name) == 0) {
-                *result_ip = ((struct sockaddr_in *)current_interface->ifa_addr)->sin_addr;
+    for (current_interface = interface_list_head; current_interface != NULL; current_interface = current_interface->ifa_next) {
+        if (current_interface->ifa_addr == NULL || current_interface->ifa_addr->sa_family != family) {
+            continue;
+        }
+
+        if (strcmp(current_interface->ifa_name, target_interface_name) != 0) {
+            continue;
+        }
+
+        // For IPv4, prefer the primary usable address that is not loopback
+        if (family == AF_INET) {
+            const struct sockaddr_in *ipv4_address = (const struct sockaddr_in *)current_interface->ifa_addr;
+            // For IPv4, we should use the primary usable address that is not loopback
+            if ((current_interface->ifa_flags & IFF_LOOPBACK) == 0 && ipv4_address->sin_addr.s_addr != htonl(INADDR_LOOPBACK)) {
+                *(struct in_addr *)result_ip = ipv4_address->sin_addr;
                 freeifaddrs(interface_list_head);
                 return OK;
             }
+            continue;
         }
+        // For IPv6, we should use the first global address on the selected interface, 
+        // but if none found, we can fallback to link-local or loopback
+        const struct sockaddr_in6 *ipv6_address = (const struct sockaddr_in6 *)current_interface->ifa_addr;
+        // IPv6 should use the first global address on the selected interface.
+        if (IN6_IS_ADDR_LINKLOCAL(&ipv6_address->sin6_addr) || IN6_IS_ADDR_LOOPBACK(&ipv6_address->sin6_addr)) {
+            if (!ipv6_candidate_found) {
+                ipv6_candidate = ipv6_address->sin6_addr;
+                ipv6_candidate_found = true;
+            }
+            continue;
+        }
+
+        *(struct in6_addr *)result_ip = ipv6_address->sin6_addr;
+        freeifaddrs(interface_list_head);
+        return OK;
     }
+
+    if (family == AF_INET6 && ipv6_candidate_found) {
+        *(struct in6_addr *)result_ip = ipv6_candidate;
+        freeifaddrs(interface_list_head);
+        return OK;
+    }
+
+    freeifaddrs(interface_list_head);
     return ERROR;
 }
 
-// Helper to compute TCP checksum with pseudo-header
-uint16_t tcp_checksum(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header) {
+// Helper for IPv6 TCP checksum
+static uint16_t tcp_checksum_ipv6(struct in6_addr source, struct in6_addr destination, Tcp_header *tcp_header) {
     struct {
-        uint32_t src;
-        uint32_t dst;
+        struct in6_addr source;
+        struct in6_addr destination;
+        uint32_t tcp_len;
+        uint8_t zero[IPV6_PSEUDO_HEADER_ZERO_BYTES];
+        uint8_t next_header;
+    } pseudo_header;
+
+    memset(&pseudo_header, 0, sizeof(pseudo_header));
+    pseudo_header.source = source;
+    pseudo_header.destination = destination;
+    pseudo_header.tcp_len = htonl(sizeof(Tcp_header));
+    pseudo_header.next_header = IPPROTO_TCP;
+
+    uint8_t buffer[sizeof(pseudo_header) + sizeof(Tcp_header)];
+    memcpy(buffer, &pseudo_header, sizeof(pseudo_header));
+    memcpy(buffer + sizeof(pseudo_header), tcp_header, sizeof(Tcp_header));
+
+    return checksum(buffer, sizeof(buffer));
+}
+
+// Helper for IPv4 TCP checksum
+uint16_t tcp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header) {
+    struct {
+        uint32_t source;
+        uint32_t destination;
         uint8_t zero;
         uint8_t proto;
         uint16_t tcp_len;
     } pseudo_header;
 
-    pseudo_header.src = source_ip.s_addr;
-    pseudo_header.dst = destination_ip.s_addr;
+    pseudo_header.source = source_ip.s_addr;
+    pseudo_header.destination = destination_ip.s_addr;
     pseudo_header.zero = 0;
     pseudo_header.proto = IPPROTO_TCP;
     pseudo_header.tcp_len = htons(sizeof(Tcp_header));
@@ -76,27 +146,160 @@ uint16_t tcp_checksum(struct in_addr source_ip, struct in_addr destination_ip, T
     return checksum(buffer, sizeof(buffer));
 }
 
-// send raw TCP SYN packet to target
-int send_tcp_syn(int raw_socket, const struct sockaddr_in *destination_address, Ip_header *ip_header, Tcp_header *tcp_header) {
-    char packet[sizeof(Ip_header) + sizeof(Tcp_header)];
-    memcpy(packet, ip_header, sizeof(Ip_header));
-    memcpy(packet + sizeof(Ip_header), tcp_header, sizeof(Tcp_header));
+static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_port) {
+    memset(tcp_header, 0, sizeof(Tcp_header));
 
-    struct sockaddr_in connection_destination_address;
-    memcpy(&connection_destination_address, destination_address, sizeof(struct sockaddr_in));
-    
-    if (sendto(raw_socket, packet, sizeof(packet), 0, (struct sockaddr *)&connection_destination_address, sizeof(connection_destination_address)) < 0) {
-        fprintf(stderr,"sendto");
+    tcp_header->source_port = htons(source_port);
+    tcp_header->seq_num = htonl(SEQ_NUM);
+    tcp_header->ack_num = 0;
+    tcp_header->data_offset = TCP_DATA_OFFSET(sizeof(Tcp_header));
+    tcp_header->flags = TCP_FLAG_SYN;
+    tcp_header->window_size = htons(SLIDING_WINDOW_SIZE);
+    tcp_header->urgent_pointer = 0;
+
+    // Checksum will be calculated by caller after setting dest_port.
+}
+
+// Configures the raw socket for sending TCP SYN packets,
+// including setting IP_HDRINCL and binding to the specified interface if provided.
+static int configure_tcp_raw_socket(int raw_socket, int family, const char *interface_name) {
+    int include_ip_header = 1;
+
+    //
+    if (family == AF_INET) {
+        if (setsockopt(raw_socket, IPPROTO_IP, IP_HDRINCL, &include_ip_header, sizeof(include_ip_header)) < 0) {
+            fprintf(stderr, "setsockopt IP_HDRINCL\n");
+            return ERROR;
+        }
+    } else if (family == AF_INET6) {
+        if (setsockopt(raw_socket, IPPROTO_IPV6, IPV6_HDRINCL, &include_ip_header, sizeof(include_ip_header)) < 0) {
+            fprintf(stderr, "setsockopt IPV6_HDRINCL\n");
+            return ERROR;
+        }
+    } else {
+        return ERROR;
+    }
+
+    if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != OK) {
         return ERROR;
     }
 
     return OK;
 }
 
+static int can_reach_target_on_interface(int family, const struct sockaddr *target_address,
+    socklen_t target_address_length, const char *interface_name) {
+
+    int probe_socket = socket(family, SOCK_DGRAM, 0);
+    if (probe_socket < 0) {
+        return ERROR;
+    }
+
+    if (interface_name != NULL && bind_to_interface(probe_socket, interface_name) != OK) {
+        close(probe_socket);
+        return ERROR;
+    }
+
+    if (connect(probe_socket, target_address, target_address_length) != 0) {
+        close(probe_socket);
+        return ERROR;
+    }
+
+    close(probe_socket);
+    return OK;
+}
+
+/* ========================= Packet Builders ========================= */
+
+// Initializes the IP and TCP headers for a SYN packet to the target
+int create_tcp_syn_packet_ipv4(struct in_addr source_ip, struct in_addr destination_ip, uint16_t source_port,
+    Ipv4_header *ip_header, Tcp_header *tcp_header) {
+
+    memset(ip_header, 0, sizeof(Ipv4_header));
+
+    ip_header->version_ihl = IPV4_VERSION_IHL(sizeof(Ipv4_header));
+    ip_header->dscp_ecn = 0;
+    ip_header->total_length = htons(sizeof(Ipv4_header) + sizeof(Tcp_header));
+    ip_header->identification = htons(MY_RANDOM_PORT); // Just a random number for identification
+    ip_header->flags_fragment_offset = htons(0);
+    ip_header->ttl = DEFAULT_IP_TTL;
+    ip_header->protocol = IPPROTO_TCP;
+    ip_header->source_ip = source_ip;
+    ip_header->dest_ip = destination_ip;
+    ip_header->header_checksum = checksum(ip_header, sizeof(Ipv4_header));
+
+    initialize_tcp_syn_header(tcp_header, source_port);
+
+    return OK;
+}
+
+// Initializes the IPv6 and TCP headers for a SYN packet to the target
+int create_tcp_syn_packet_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip, uint16_t source_port,
+    Ipv6_header *ipv6_header, Tcp_header *tcp_header) {
+
+    memset(ipv6_header, 0, sizeof(Ipv6_header));
+
+    ipv6_header->version_traffic_class_flow_label = htonl((6u << 28));
+    ipv6_header->payload_length = htons(sizeof(Tcp_header));
+    ipv6_header->next_header = IPPROTO_TCP;
+    ipv6_header->hop_limit = DEFAULT_IPV6_HOP_LIMIT;
+    ipv6_header->source_ip = source_ip;
+    ipv6_header->dest_ip = destination_ip;
+
+    initialize_tcp_syn_header(tcp_header, source_port);
+
+    return OK;
+}
+
+/* ========================= Packet Senders ========================= */
+
+// Send a raw TCP SYN packet to the target IPv6 address
+int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Ipv6_header *ipv6_header, Tcp_header *tcp_header) {
+    struct ip6_hdr ip6_header;
+    memset(&ip6_header, 0, sizeof(ip6_header));
+    ip6_header.ip6_flow = ipv6_header->version_traffic_class_flow_label;
+    ip6_header.ip6_plen = ipv6_header->payload_length;
+    ip6_header.ip6_nxt = ipv6_header->next_header;
+    ip6_header.ip6_hops = ipv6_header->hop_limit;
+    ip6_header.ip6_src = ipv6_header->source_ip;
+    ip6_header.ip6_dst = ipv6_header->dest_ip;
+
+    char packet[sizeof(struct ip6_hdr) + sizeof(Tcp_header)];
+    memcpy(packet, &ip6_header, sizeof(ip6_header));
+    memcpy(packet + sizeof(ip6_header), tcp_header, sizeof(Tcp_header));
+
+    if (sendto(raw_socket, packet, sizeof(packet), 0,
+               (const struct sockaddr *)destination_address, sizeof(*destination_address)) < 0) {
+        fprintf(stderr, "sendto ipv6 failed\n");
+        return ERROR;
+    }
+    return OK;
+}
+
+// Send a raw TCP SYN packet to the target IPv4 address
+int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_address, Ipv4_header *ip_header, Tcp_header *tcp_header) {
+    char packet[sizeof(Ipv4_header) + sizeof(Tcp_header)];
+    memcpy(packet, ip_header, sizeof(Ipv4_header));
+    memcpy(packet + sizeof(Ipv4_header), tcp_header, sizeof(Tcp_header));
+
+    struct sockaddr_in connection_destination_address;
+    memcpy(&connection_destination_address, destination_address, sizeof(struct sockaddr_in));
+    
+    if (sendto(raw_socket, packet, sizeof(packet), 0, (struct sockaddr *)&connection_destination_address, sizeof(connection_destination_address)) < 0) {
+        fprintf(stderr,"sendto ipv4\n");
+        return ERROR;
+    }
+
+    return OK;
+}
+
+/* ========================= Target and Capture Helpers ========================= */
+
+// Resolves the target hostname to a list of addresses (IPv4 and/or IPv6) based on the configuration
 int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
+    hints.ai_family = AF_UNSPEC; // Allow both IPv4 and IPv6.
     hints.ai_socktype = SOCK_STREAM;
     
     if (getaddrinfo(config->server_hostname, NULL, &hints, targets) != 0) {
@@ -105,6 +308,7 @@ int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
     return OK;
 }
 
+// Calculate elapsed time in milliseconds since the provided start time
 long calculate_elapsed_ms(struct timeval start_time) {
     struct timeval current_time;
     gettimeofday(&current_time, NULL);
@@ -113,6 +317,7 @@ long calculate_elapsed_ms(struct timeval start_time) {
            (current_time.tv_usec - start_time.tv_usec) / 1000;
 }
 
+// Get the length of the link layer header based on the pcap link type
 int get_link_header_length(int link_type) {
     switch (link_type) {
         case DLT_LINUX_SLL:
@@ -124,6 +329,7 @@ int get_link_header_length(int link_type) {
     }
 }
 
+// Listen for incoming packets and check if they are responses to our SYN packet for the specified target port
 int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_port, int timeout_ms) {
     struct pcap_pkthdr *packet_header;
     const u_char *packet_data;
@@ -133,73 +339,49 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
 
     while (1) {
         if (calculate_elapsed_ms(start_time) > timeout_ms) {
-            return PORT_STATUS_FILTERED; // Timeout, no response
+            return PORT_STATUS_FILTERED;
         }
 
         int result = pcap_next_ex(pcap_handle, &packet_header, &packet_data);
+        if (result == 0) continue;
+        if (result < 0) return ERROR;
 
-        if (result == 0) {
-            continue; 
-        }
-        if (result < 0) {
-            return ERROR;
-        }
-
-        // Parse packet headers
         int link_header_length = get_link_header_length(pcap_datalink(pcap_handle));
+        if ((int)packet_header->caplen <= link_header_length) continue;
 
-        struct iphdr *ip_header = (struct iphdr *)(packet_data + link_header_length);
-        //  ensure it's an IPv4 packet before casting
-        if (ip_header->version != 4) continue;
+        const uint8_t *ip_start = packet_data + link_header_length;
+        uint8_t version = IP_VERSION_FROM_FIRST_BYTE(ip_start[0]);
+        struct tcphdr *tcp_header = NULL;
 
-        struct tcphdr *tcp_header = (struct tcphdr *)((u_char *)ip_header + (ip_header->ihl * 4));
+        if (IS_IPV4_VERSION(version)) {
+            if ((int)packet_header->caplen < link_header_length + (int)sizeof(struct iphdr)) continue;
+
+            struct iphdr *ip_hdr = (struct iphdr *)ip_start;
+            int ip_hlen = ip_hdr->ihl * 4;
+
+            if (ip_hlen < 20 || (int)packet_header->caplen < link_header_length + ip_hlen + (int)sizeof(struct tcphdr)) continue;
+            tcp_header = (struct tcphdr *)(ip_start + ip_hlen);
+        } else if (IS_IPV6_VERSION(version)) {
+            if ((int)packet_header->caplen < link_header_length + (int)sizeof(struct ip6_hdr) + (int)sizeof(struct tcphdr)) continue;
+
+            struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)ip_start;
+            if (ip6_hdr->ip6_nxt != IPPROTO_TCP) continue;
+            tcp_header = (struct tcphdr *)(ip_start + sizeof(struct ip6_hdr));
+        } else {
+            continue;
+        }
 
         if (ntohs(tcp_header->dest) == my_port && ntohs(tcp_header->source) == target_port) {
-            if (tcp_header->syn && tcp_header->ack) {
-                return PORT_STATUS_OPEN;
-            }
-            if (tcp_header->rst) {
-                return PORT_STATUS_CLOSED;
-            }
+            if (tcp_header->syn && tcp_header->ack) return PORT_STATUS_OPEN;
+            if (tcp_header->rst) return PORT_STATUS_CLOSED;
             return PORT_STATUS_FILTERED;
         }
     }
 }
 
-int create_tcp_syn_packet(struct in_addr source_ip, struct in_addr dest_ip, uint16_t source_port,
-    Ip_header *ip_header, Tcp_header *tcp_header) {
-
-    memset(ip_header, 0, sizeof(Ip_header));
-    memset(tcp_header, 0, sizeof(Tcp_header));
-
-    ip_header->version_ihl = IP_VERSION_IHL(sizeof(Ip_header));
-    ip_header->dscp_ecn = 0;
-    ip_header->total_length = htons(sizeof(Ip_header) + sizeof(Tcp_header));
-    ip_header->identification = htons(MY_RANDOM_PORT); // Just a random number for identification
-    ip_header->flags_fragment_offset = htons(0);
-    ip_header->ttl = 64;
-    ip_header->protocol = IPPROTO_TCP;
-    ip_header->source_ip = source_ip;
-    ip_header->dest_ip = dest_ip;
-    ip_header->header_checksum = checksum(ip_header, sizeof(Ip_header));
-
-    tcp_header->source_port = htons(source_port);
-    // dest_port set by caller per port
-    tcp_header->seq_num = htonl(SEQ_NUM);
-    tcp_header->ack_num = 0;
-    tcp_header->data_offset = TCP_DATA_OFFSET(sizeof(Tcp_header));
-    tcp_header->flags = 0x02; // SYN
-    tcp_header->window_size = htons(SLIDING_WINDOW_SIZE);
-    tcp_header->urgent_pointer = 0;
-    
-    // Checksum will be calculated by caller after setting dest_port
-
-    return OK;
-}
-
 // Initializes a pcap handle for listening to responses from the target IP
 // Sets filter to capture only TCP packets from the target IP and configures timeout and non-blocking mode
-// This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted for our specific use case and requirements.
+// This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted specific use case and requirements
 pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *pcap_handle;
@@ -240,10 +422,15 @@ pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) 
 
     // Compile and set filter to capture only relevant TCP packets from target IP
     struct bpf_program filter_program;
-    char filter_expression[100];
-    char target_ip_string[INET_ADDRSTRLEN];
+    char filter_expression[TCP_PCAP_FILTER_MAX_LENGTH];
+    char target_ip_string[INET6_ADDRSTRLEN];
     ip_string_from_sockaddr(target->ai_addr, target_ip_string, sizeof(target_ip_string));
-    snprintf(filter_expression, sizeof(filter_expression), "src host %s and tcp", target_ip_string);
+    int filter_expression_length = snprintf(filter_expression, sizeof(filter_expression), "src host %s and tcp", target_ip_string);
+    if (filter_expression_length < 0 || (size_t)filter_expression_length >= sizeof(filter_expression)) {
+        fprintf(stderr, "Could not build pcap filter expression\n");
+        pcap_close(pcap_handle);
+        return NULL;
+    }
     
     if (pcap_compile(pcap_handle, &filter_program, filter_expression, 0, PCAP_NETMASK_UNKNOWN) == -1) {
          fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_expression, pcap_geterr(pcap_handle));
@@ -256,88 +443,118 @@ pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) 
          return NULL;
     }
 
+    pcap_freecode(&filter_program);
+
     return pcap_handle;
 }
 
+/* ========================= Scan Flow ========================= */
+
+// Scans the specified TCP ports for a single target IP address by sending SYN packets and listening for responses
 int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target) {
-    struct in_addr local_ip;
-    if (get_local_ip_address(config->interface_name, &local_ip) != OK) {
-        fprintf(stderr, "Could not determine local IP address. Checksum calculation would fail.\n");
+    char target_ip_string[INET6_ADDRSTRLEN];
+    ip_string_from_sockaddr(target->ai_addr, target_ip_string, sizeof(target_ip_string));
+
+    struct in_addr local_ip4;
+    struct in6_addr local_ip6;
+
+    if (target->ai_family == AF_INET) {
+        if (get_local_ip_address(config->interface_name, AF_INET, &local_ip4) != OK) {
+            fprintf(stderr, "Could not determine local IPv4 address.\n");
+            return ERROR;
+        }
+    } else if (target->ai_family == AF_INET6) {
+        if (get_local_ip_address(config->interface_name, AF_INET6, &local_ip6) != OK) {
+            fprintf(stderr, "Could not determine local IPv6 address.\n");
+            return ERROR;
+        }
+    } else {
         return ERROR;
     }
 
-    // Open handle for libpcap
+    if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != OK) {
+        if (target->ai_family == AF_INET6) {
+            fprintf(stderr, "No IPv6 route to %s via interface %s\n", target_ip_string,
+                config->interface_name ? config->interface_name : "any");
+        } else {
+            fprintf(stderr, "No IPv4 route to %s via interface %s\n", target_ip_string,
+                config->interface_name ? config->interface_name : "any");
+        }
+        return ERROR;
+    }
+
     pcap_t *pcap_handle = initialize_pcap_listener(config, target);
     if (pcap_handle == NULL) {
         return ERROR;
     }
 
-    // Open RAW socket for sending
-    int raw_socket = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    int raw_socket = socket(target->ai_family, SOCK_RAW, (target->ai_family == AF_INET) ? IPPROTO_TCP : IPPROTO_RAW);
     if (raw_socket <= 0) {
-        fprintf(stderr,"socket");
+        fprintf(stderr, "socket\n");
         pcap_close(pcap_handle);
         return ERROR;
     }
 
-    char target_ip_string[INET_ADDRSTRLEN];
-    ip_string_from_sockaddr(target->ai_addr, target_ip_string, sizeof(target_ip_string));
-
-    // Set IP_HDRINCL to tell the kernel we provide our own IP header
-    int on = 1;
-    if (setsockopt(raw_socket, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)) < 0) {
-        fprintf(stderr,"setsockopt IP_HDRINCL");
+    if (configure_tcp_raw_socket(raw_socket, target->ai_family, config->interface_name) != OK) {
         close(raw_socket);
         pcap_close(pcap_handle);
         return ERROR;
     }
 
-    // Bind to interface if specified
-    if (config->interface_name && bind_to_interface(raw_socket, config->interface_name) != OK) {
-        close(raw_socket);
-        pcap_close(pcap_handle);
-        return ERROR;
-    }
-
-    Ip_header ip_header;
     Tcp_header tcp_header;
-    struct sockaddr_in *destination_socket_address = (struct sockaddr_in *)target->ai_addr;
+    memset(&tcp_header, 0, sizeof(tcp_header));
 
-    create_tcp_syn_packet(local_ip, destination_socket_address->sin_addr, MY_RANDOM_PORT, &ip_header, &tcp_header);
-   
-    for (int port_number=1; port_number<MAX_PORTS; port_number++) {
-        if (config->tcp_ports[port_number]) {
-            tcp_header.dest_port = htons(port_number);
-            tcp_header.checksum = 0; // Reset checksum
-            tcp_header.checksum = tcp_checksum(ip_header.source_ip, ip_header.dest_ip, &tcp_header);
+    struct sockaddr_in *dst4 = (struct sockaddr_in *)target->ai_addr;
+    struct sockaddr_in6 *dst6 = (struct sockaddr_in6 *)target->ai_addr;
 
-            int response_status = PORT_STATUS_FILTERED;
-            for (int attempt = 0; attempt < 2; attempt++) {
-                send_tcp_syn(raw_socket, destination_socket_address, &ip_header, &tcp_header);
-                response_status = catch_tcp_response(pcap_handle, MY_RANDOM_PORT, port_number, config->timeout_ms);
-                
-                if (response_status != PORT_STATUS_FILTERED) {
-                    break;  // Got a definitive answer, don't retry
-                }
-                // For filtered ports, we can retry a few times to reduce false positives due to packet loss
-                // Maybe not necessary...
-            }
+    Ipv4_header ip_header;
+    Ipv6_header ipv6_header;
+    if (target->ai_family == AF_INET) {
+        create_tcp_syn_packet_ipv4(local_ip4, dst4->sin_addr, MY_RANDOM_PORT, &ip_header, &tcp_header);
+    } else {
+        create_tcp_syn_packet_ipv6(local_ip6, dst6->sin6_addr, MY_RANDOM_PORT, &ipv6_header, &tcp_header);
+    }
 
-            if (response_status == PORT_STATUS_OPEN) {
-                printf("%s %d tcp open\n", target_ip_string, port_number);
-            } else if (response_status == PORT_STATUS_CLOSED) {
-                printf("%s %d tcp closed\n", target_ip_string, port_number);
-            } else if (response_status == PORT_STATUS_FILTERED) {
-                printf("%s %d tcp filtered\n", target_ip_string, port_number); 
-            }
+    for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
+        if (!config->tcp_ports[port_number]) continue;
+
+        tcp_header.dest_port = htons(port_number);
+        tcp_header.checksum = 0;
+
+        int send_status = ERROR;
+        if (target->ai_family == AF_INET) {
+            tcp_header.checksum = tcp_checksum_ipv4(local_ip4, dst4->sin_addr, &tcp_header);
+            send_status = send_tcp_syn_ipv4(raw_socket, dst4, &ip_header, &tcp_header);
+        } else {
+            tcp_header.checksum = tcp_checksum_ipv6(local_ip6, dst6->sin6_addr, &tcp_header);
+            send_status = send_tcp_syn_ipv6(raw_socket, dst6, &ipv6_header, &tcp_header);
         }
-    }    
+
+        if (send_status != OK) continue;
+
+        int response_status = PORT_STATUS_FILTERED;
+
+        // To improve reliability, we can attempt to catch a response multiple times before concluding the port is filtered
+        for (int attempt = 0; attempt < 2; attempt++) {
+            response_status = catch_tcp_response(pcap_handle, MY_RANDOM_PORT, port_number, config->timeout_ms);
+            if (response_status != PORT_STATUS_FILTERED) break;
+        }
+
+        if (response_status == PORT_STATUS_OPEN) {
+            printf("%s %d tcp open\n", target_ip_string, port_number);
+        } else if (response_status == PORT_STATUS_CLOSED) {
+            printf("%s %d tcp closed\n", target_ip_string, port_number);
+        } else {
+            printf("%s %d tcp filtered\n", target_ip_string, port_number);
+        }
+    }
+
     close(raw_socket);
     pcap_close(pcap_handle);
     return OK;
 }
 
-
+// Main TCP scanning function for all targets
 int run_tcp_scan(const Config *config) {
     if (!has_selected_ports(config->tcp_ports)) {
         return OK;
@@ -349,7 +566,15 @@ int run_tcp_scan(const Config *config) {
     }
 
     for (struct addrinfo *target = targets; target != NULL; target = target->ai_next) {
-        scan_tcp_ports_for_one_target(config, target);
+        if (target->ai_family != AF_INET && target->ai_family != AF_INET6) {
+            fprintf(stderr, "Skipping unsupported address family\n");
+            continue;
+        }
+
+        if (scan_tcp_ports_for_one_target(config, target) == ERROR) {
+            fprintf(stderr, "Error scanning target\n");
+            continue;
+        }
     }
     
     freeaddrinfo(targets);

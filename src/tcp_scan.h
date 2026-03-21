@@ -31,9 +31,18 @@ typedef struct  {
     uint16_t header_checksum;
     struct in_addr source_ip;
     struct in_addr dest_ip;
-} Ip_header;
+} Ipv4_header;
 
-#define IP_VERSION_IHL(header_bytes) ((4 << 4) | ((header_bytes) / 4))
+typedef struct {
+    uint32_t version_traffic_class_flow_label; // Version (4 bits) + Traffic Class (8 bits) + Flow Label (20 bits)
+    uint16_t payload_length;
+    uint8_t next_header;
+    uint8_t hop_limit;
+    struct in6_addr source_ip;
+    struct in6_addr dest_ip;
+} Ipv6_header;
+
+#define IPV4_VERSION_IHL(header_bytes) ((4 << 4) | ((header_bytes) / 4))
 #define TCP_DATA_OFFSET(header_bytes) (((header_bytes) / 4) << 4)
 
 /* libpcap link layer header lengths for different interface types */
@@ -41,15 +50,37 @@ typedef struct  {
 #define PCAP_LINK_HEADER_LINUX_SLL 16   /* DLT_LINUX_SLL (Cooked packet, tcpdump format) */
 #define PCAP_LINK_HEADER_LOOPBACK 4     /* DLT_NULL (Loopback interface) */
 
+#define CHECKSUM_WORD_SIZE_BYTES 2
+#define CHECKSUM_SINGLE_BYTE_REMAINDER 1
+#define CHECKSUM_CARRY_SHIFT 16
+#define CHECKSUM_LOW_16_MASK 0xFFFF
+
+#define DEFAULT_IP_TTL 64
+#define DEFAULT_IPV6_HOP_LIMIT 64
+#define TCP_FLAG_SYN 0x02
+#define IPV6_PSEUDO_HEADER_ZERO_BYTES 3
+
+#define IP_VERSION_MASK 0x0F
+#define IPV4_VERSION_VALUE 4
+#define IPV6_VERSION_VALUE 6
+#define IP_VERSION_FROM_FIRST_BYTE(first_byte) (((first_byte) >> 4) & IP_VERSION_MASK)
+#define IS_IPV4_VERSION(version) ((version) == IPV4_VERSION_VALUE)
+#define IS_IPV6_VERSION(version) ((version) == IPV6_VERSION_VALUE)
+
+#define TCP_PCAP_FILTER_MAX_LENGTH (INET6_ADDRSTRLEN + 32)
+
 
 /** Get the local IP address for a specific network interface */
-int get_local_ip_address(const char *interface_name, struct in_addr *local_ip);
+int get_local_ip_address(const char *interface_name, int family, void *local_ip);
 
 /** Send a raw TCP SYN packet to the target */
-int send_tcp_syn(int raw_socket, const struct sockaddr_in *destination_address, Ip_header *ip_header, Tcp_header *tcp_header);
+int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_address, Ipv4_header *ip_header, Tcp_header *tcp_header);
+
+/** Send a raw TCP SYN packet to IPv6 target */
+int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Ipv6_header *ipv6_header, Tcp_header *tcp_header);
 
 /** Calculate TCP checksum with pseudo-header (RFC 793) */
-uint16_t tcp_checksum(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header);
+uint16_t tcp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header);
 
 /** Main TCP scanning function for all targets */
 int run_tcp_scan(const Config *config);
