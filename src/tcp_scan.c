@@ -12,6 +12,9 @@
 /* ========================= Helpers ========================= */
 
 // Determines the local IP address
+// Tries to pick the best source IP for target interface
+// ( for ipv4, the primary usable address that is not loopback, 
+//for ipv6, the first global address, but if none found, we can fallback to link-local or loopback)
 int get_local_ip_address(const char *target_interface_name, int family, void *result_ip) {
     struct ifaddrs *interface_list_head;
     struct ifaddrs *current_interface;
@@ -93,29 +96,6 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
     return ERROR;
 }
 
-// Helper for IPv6 TCP checksum
-static uint16_t tcp_checksum_ipv6(struct in6_addr source, struct in6_addr destination, Tcp_header *tcp_header) {
-    struct {
-        struct in6_addr source;
-        struct in6_addr destination;
-        uint32_t tcp_len;
-        uint8_t zero[IPV6_PSEUDO_HEADER_ZERO_BYTES];
-        uint8_t next_header;
-    } pseudo_header;
-
-    memset(&pseudo_header, 0, sizeof(pseudo_header));
-    pseudo_header.source = source;
-    pseudo_header.destination = destination;
-    pseudo_header.tcp_len = htonl(sizeof(Tcp_header));
-    pseudo_header.next_header = IPPROTO_TCP;
-
-    uint8_t buffer[sizeof(pseudo_header) + sizeof(Tcp_header)];
-    memcpy(buffer, &pseudo_header, sizeof(pseudo_header));
-    memcpy(buffer + sizeof(pseudo_header), tcp_header, sizeof(Tcp_header));
-
-    return checksum(buffer, sizeof(buffer));
-}
-
 static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_port) {
     memset(tcp_header, 0, sizeof(Tcp_header));
 
@@ -130,36 +110,10 @@ static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_po
     // Checksum will be calculated by caller after setting destination_port.
 }
 
-// Configures the raw socket for sending TCP SYN packets,
-// including setting IP_HDRINCL and binding to the specified interface if provided.
-static int configure_tcp_raw_socket(int raw_socket, int family, const char *interface_name) {
-    int include_ip_header = 1;
-
-    //
-    if (family == AF_INET) {
-        if (setsockopt(raw_socket, IPPROTO_IP, IP_HDRINCL, &include_ip_header, sizeof(include_ip_header)) < 0) {
-            fprintf(stderr, "setsockopt IP_HDRINCL\n");
-            return ERROR;
-        }
-    } else if (family == AF_INET6) {
-        if (setsockopt(raw_socket, IPPROTO_IPV6, IPV6_HDRINCL, &include_ip_header, sizeof(include_ip_header)) < 0) {
-            fprintf(stderr, "setsockopt IPV6_HDRINCL\n");
-            return ERROR;
-        }
-    } else {
-        return ERROR;
-    }
-
-    if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != OK) {
-        return ERROR;
-    }
-
-    return OK;
-}
-
 static int can_reach_target_on_interface(int family, const struct sockaddr *target_address,
     socklen_t target_address_length, const char *interface_name) {
 
+    // We can check if the target is reachable on the specified interface by attempting to connect a UDP socket to the target.
     int probe_socket = socket(family, SOCK_DGRAM, 0);
     if (probe_socket < 0) {
         return ERROR;
@@ -203,19 +157,11 @@ int create_tcp_syn_packet_ipv4(struct in_addr source_ip, struct in_addr destinat
     return OK;
 }
 
-// Initializes the IPv6 and TCP headers for a SYN packet to the target
+// Initializes TCP header for an IPv6 SYN packet (IPv6 header is provided by kernel)
 int create_tcp_syn_packet_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip, uint16_t source_port,
-    Ipv6_header *ipv6_header, Tcp_header *tcp_header) {
-
-    memset(ipv6_header, 0, sizeof(Ipv6_header));
-
-    ipv6_header->version_traffic_class_flow_label = htonl((6u << 28));
-    ipv6_header->payload_length = htons(sizeof(Tcp_header));
-    ipv6_header->next_header = IPPROTO_TCP;
-    ipv6_header->hop_limit = DEFAULT_IPV6_HOP_LIMIT;
-    ipv6_header->source_ip = source_ip;
-    ipv6_header->destination_ip = destination_ip;
-
+    Tcp_header *tcp_header) {
+    (void)source_ip;
+    (void)destination_ip;
     initialize_tcp_syn_header(tcp_header, source_port);
 
     return OK;
@@ -223,22 +169,10 @@ int create_tcp_syn_packet_ipv6(struct in6_addr source_ip, struct in6_addr destin
 
 /* ========================= Packet Senders ========================= */
 
-// Send a raw TCP SYN packet to the target IPv6 address
-int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Ipv6_header *ipv6_header, Tcp_header *tcp_header) {
-    struct ip6_hdr ip6_header;
-    memset(&ip6_header, 0, sizeof(ip6_header));
-    ip6_header.ip6_flow = ipv6_header->version_traffic_class_flow_label;
-    ip6_header.ip6_plen = ipv6_header->payload_length;
-    ip6_header.ip6_nxt = ipv6_header->next_header;
-    ip6_header.ip6_hops = ipv6_header->hop_limit;
-    ip6_header.ip6_src = ipv6_header->source_ip;
-    ip6_header.ip6_dst = ipv6_header->destination_ip;
-
-    char packet[sizeof(struct ip6_hdr) + sizeof(Tcp_header)];
-    memcpy(packet, &ip6_header, sizeof(ip6_header));
-    memcpy(packet + sizeof(ip6_header), tcp_header, sizeof(Tcp_header));
-
-    if (sendto(raw_socket, packet, sizeof(packet), 0,
+// Send a raw TCP SYN packet to the target IPv6 address.
+// For AF_INET6 raw TCP socket, kernel builds IPv6 header.
+int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Tcp_header *tcp_header) {
+    if (sendto(raw_socket, tcp_header, sizeof(Tcp_header), 0,
                (const struct sockaddr *)destination_address, sizeof(*destination_address)) < 0) {
         fprintf(stderr, "sendto ipv6 failed\n");
         return ERROR;
@@ -256,7 +190,7 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
     memcpy(&connection_destination_address, destination_address, sizeof(struct sockaddr_in));
     
     if (sendto(raw_socket, packet, sizeof(packet), 0, (struct sockaddr *)&connection_destination_address, sizeof(connection_destination_address)) < 0) {
-        fprintf(stderr,"sendto ipv4\n");
+        fprintf(stderr,"sendto ipv4 failed\n");
         return ERROR;
     }
 
@@ -351,7 +285,7 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
 
 // Initializes a pcap handle for listening to responses from the target IP
 // Sets filter to capture only TCP packets from the target IP and configures timeout and non-blocking mode
-// This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted specific use case and requirements
+// This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted for specific use case and requirements
 pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *pcap_handle;
@@ -458,17 +392,25 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
         return ERROR;
     }
 
-    int raw_socket = socket(target->ai_family, SOCK_RAW, (target->ai_family == AF_INET) ? IPPROTO_TCP : IPPROTO_RAW);
+    int raw_socket = socket(target->ai_family, SOCK_RAW, IPPROTO_TCP);
     if (raw_socket <= 0) {
         fprintf(stderr, "socket\n");
         pcap_close(pcap_handle);
         return ERROR;
     }
 
-    if (configure_tcp_raw_socket(raw_socket, target->ai_family, config->interface_name) != OK) {
-        close(raw_socket);
-        pcap_close(pcap_handle);
-        return ERROR;
+    if (target->ai_family == AF_INET) {
+        if (configure_raw_socket(raw_socket, target->ai_family, config->interface_name) != OK) {
+            close(raw_socket);
+            pcap_close(pcap_handle);
+            return ERROR;
+        }
+    } else {
+        if (config->interface_name != NULL && bind_to_interface(raw_socket, config->interface_name) != OK) {
+            close(raw_socket);
+            pcap_close(pcap_handle);
+            return ERROR;
+        }
     }
 
     Tcp_header tcp_header;
@@ -478,11 +420,10 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
     struct sockaddr_in6 *destination6 = (struct sockaddr_in6 *)target->ai_addr;
 
     Ipv4_header ip_header;
-    Ipv6_header ipv6_header;
     if (target->ai_family == AF_INET) {
         create_tcp_syn_packet_ipv4(local_ip4, destination4->sin_addr, MY_RANDOM_PORT, &ip_header, &tcp_header);
     } else {
-        create_tcp_syn_packet_ipv6(local_ip6, destination6->sin6_addr, MY_RANDOM_PORT, &ipv6_header, &tcp_header);
+        create_tcp_syn_packet_ipv6(local_ip6, destination6->sin6_addr, MY_RANDOM_PORT, &tcp_header);
     }
 
     for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
@@ -497,8 +438,9 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
                 IPPROTO_TCP, &tcp_header, sizeof(Tcp_header));
             send_status = send_tcp_syn_ipv4(raw_socket, destination4, &ip_header, &tcp_header);
         } else {
-            tcp_header.checksum = tcp_checksum_ipv6(local_ip6, destination6->sin6_addr, &tcp_header);
-            send_status = send_tcp_syn_ipv6(raw_socket, destination6, &ipv6_header, &tcp_header);
+            tcp_header.checksum = checksum_ipv6(local_ip6, destination6->sin6_addr,
+                IPPROTO_TCP, &tcp_header, sizeof(Tcp_header));
+            send_status = send_tcp_syn_ipv6(raw_socket, destination6, &tcp_header);
         }
 
         if (send_status != OK) continue;

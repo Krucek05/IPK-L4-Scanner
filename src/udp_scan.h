@@ -17,6 +17,8 @@ typedef struct {
     uint16_t checksum;
 } Udp_header;
 
+uint16_t udp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Udp_header *udp_header);
+uint16_t udp_checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip, Udp_header *udp_header);
 
 int run_udp_scan(const Config *config);
 

@@ -1,15 +1,13 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <string.h>
 #include <stdbool.h>
 
 #include "L4-scan.h"
-
-#define CHECKSUM_WORD_SIZE_BYTES 2
-#define CHECKSUM_SINGLE_BYTE_REMAINDER 1
-#define CHECKSUM_CARRY_SHIFT 16
-#define CHECKSUM_LOW_16_MASK 0xFFFF
+#include "addr_helpers.h"
 
 bool has_selected_ports(const bool *ports) {
     if (ports == NULL) {
@@ -91,6 +89,30 @@ int bind_to_interface(int socket_fd, const char *interface_name) {
     return OK;
 }
 
+int configure_raw_socket(int raw_socket, int family, const char *interface_name) {
+    int include_ip_header = 1;
+
+    if (family == AF_INET) {
+        if (setsockopt(raw_socket, IPPROTO_IP, IP_HDRINCL,
+                &include_ip_header, sizeof(include_ip_header)) < 0) {
+            return ERROR;
+        }
+    } else if (family == AF_INET6) {
+        if (setsockopt(raw_socket, IPPROTO_IPV6, IPV6_HDRINCL,
+                &include_ip_header, sizeof(include_ip_header)) < 0) {
+            return ERROR;
+        }
+    } else {
+        return ERROR;
+    }
+
+    if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != OK) {
+        return ERROR;
+    }
+
+    return OK;
+}
+
 // check if packet was not corrupted 
 // Checksum calculation adapted from https://tools.ietf.org/html/rfc1071 and AI suggestions, but implemented for my usage
 uint16_t checksum(const void *data, size_t length) {
@@ -132,6 +154,34 @@ uint16_t checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip,
     pseudo_header.zero = 0;
     pseudo_header.protocol = protocol;
     pseudo_header.length = htons((uint16_t)header_length);
+
+    uint8_t buffer[sizeof(pseudo_header) + header_length];
+    memcpy(buffer, &pseudo_header, sizeof(pseudo_header));
+    memcpy(buffer + sizeof(pseudo_header), header, header_length);
+
+    return checksum(buffer, sizeof(buffer));
+}
+
+uint16_t checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip,
+    uint8_t next_header, const void *header, size_t header_length) {
+
+    if (header == NULL || header_length == 0) {
+        return 0;
+    }
+
+    struct {
+        struct in6_addr source;
+        struct in6_addr destination;
+        uint32_t length;
+        uint8_t zero[3];
+        uint8_t next_header;
+    } pseudo_header;
+
+    memset(&pseudo_header, 0, sizeof(pseudo_header));
+    pseudo_header.source = source_ip;
+    pseudo_header.destination = destination_ip;
+    pseudo_header.length = htonl((uint32_t)header_length);
+    pseudo_header.next_header = next_header;
 
     uint8_t buffer[sizeof(pseudo_header) + header_length];
     memcpy(buffer, &pseudo_header, sizeof(pseudo_header));

@@ -50,11 +50,6 @@ typedef struct {
 #define PCAP_LINK_HEADER_LINUX_SLL 16   /* DLT_LINUX_SLL (Cooked packet, tcpdump format) */
 #define PCAP_LINK_HEADER_LOOPBACK 4     /* DLT_NULL (Loopback interface) */
 
-#define CHECKSUM_WORD_SIZE_BYTES 2
-#define CHECKSUM_SINGLE_BYTE_REMAINDER 1
-#define CHECKSUM_CARRY_SHIFT 16
-#define CHECKSUM_LOW_16_MASK 0xFFFF
-
 #define DEFAULT_IP_TTL 64
 #define DEFAULT_IPV6_HOP_LIMIT 64
 #define TCP_FLAG_SYN 0x02
@@ -77,7 +72,7 @@ int get_local_ip_address(const char *interface_name, int family, void *local_ip)
 int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_address, Ipv4_header *ip_header, Tcp_header *tcp_header);
 
 /** Send a raw TCP SYN packet to IPv6 target */
-int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Ipv6_header *ipv6_header, Tcp_header *tcp_header);
+int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Tcp_header *tcp_header);
 
 /** Main TCP scanning function for all targets */
 int run_tcp_scan(const Config *config);

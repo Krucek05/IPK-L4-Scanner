@@ -6,6 +6,11 @@
 #include <netinet/in.h>
 #include <stddef.h>
 
+#define CHECKSUM_WORD_SIZE_BYTES 2
+#define CHECKSUM_SINGLE_BYTE_REMAINDER 1
+#define CHECKSUM_CARRY_SHIFT 16
+#define CHECKSUM_LOW_16_MASK 0xFFFF
+
 /** Check if any TCP or UDP ports are selected in the boolean array */
 bool has_selected_ports(const bool *ports);
 
@@ -24,11 +29,18 @@ int set_target_port(struct sockaddr *addr, int port);
 /** Bind a socket to a specific network interface */
 int bind_to_interface(int socket_fd, const char *interface_name);
 
+/** Configure a raw socket for user-crafted IP packets and optional interface binding */
+int configure_raw_socket(int raw_socket, int family, const char *interface_name);
+
 /** RFC1071 checksum over arbitrary bytes */
 uint16_t checksum(const void *data, size_t length);
 
 /** RFC1071 checksum over IPv4 pseudo-header + L4 header bytes */
 uint16_t checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip,
 	uint8_t protocol, const void *header, size_t header_length);
+
+/** RFC1071 checksum over IPv6 pseudo-header + L4 header bytes */
+uint16_t checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip,
+	uint8_t next_header, const void *header, size_t header_length);
 
 #endif /* ADDR_HELPERS_H */

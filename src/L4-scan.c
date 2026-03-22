@@ -5,6 +5,7 @@
 #include "L4-scan.h"
 #include <ifaddrs.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 
 void print_help(void) {
@@ -130,6 +131,9 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
 
                     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
                         if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET)
+                            continue;
+                            // prints twice Lo, fix ?
+                        if ((ifa->ifa_flags & IFF_UP) == 0)
                             continue;
                         printf("%s\n", ifa->ifa_name);
                     }
