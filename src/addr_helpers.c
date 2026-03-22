@@ -6,6 +6,11 @@
 
 #include "L4-scan.h"
 
+#define CHECKSUM_WORD_SIZE_BYTES 2
+#define CHECKSUM_SINGLE_BYTE_REMAINDER 1
+#define CHECKSUM_CARRY_SHIFT 16
+#define CHECKSUM_LOW_16_MASK 0xFFFF
+
 bool has_selected_ports(const bool *ports) {
     if (ports == NULL) {
         return false;
@@ -84,4 +89,53 @@ int bind_to_interface(int socket_fd, const char *interface_name) {
     }
 
     return OK;
+}
+
+// check if packet was not corrupted 
+// Checksum calculation adapted from https://tools.ietf.org/html/rfc1071 and AI suggestions, but implemented for my usage
+uint16_t checksum(const void *data, size_t length) {
+    uint32_t sum = 0;
+    const uint16_t *ptr = data;
+
+    while (length > CHECKSUM_SINGLE_BYTE_REMAINDER) {
+        sum += *ptr++;
+        length -= CHECKSUM_WORD_SIZE_BYTES;
+    }
+
+    if (length > 0) {
+        sum += *(const uint8_t *)ptr;
+    }
+
+    while (sum >> CHECKSUM_CARRY_SHIFT) {
+        sum = (sum & CHECKSUM_LOW_16_MASK) + (sum >> CHECKSUM_CARRY_SHIFT);
+    }
+    return (uint16_t)(~sum);
+}
+
+uint16_t checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip,
+    uint8_t protocol, const void *header, size_t header_length) {
+
+    if (header == NULL || header_length == 0) {
+        return 0;
+    }
+
+    struct {
+        uint32_t source;
+        uint32_t destination;
+        uint8_t zero;
+        uint8_t protocol;
+        uint16_t length;
+    } pseudo_header;
+
+    pseudo_header.source = source_ip.s_addr;
+    pseudo_header.destination = destination_ip.s_addr;
+    pseudo_header.zero = 0;
+    pseudo_header.protocol = protocol;
+    pseudo_header.length = htons((uint16_t)header_length);
+
+    uint8_t buffer[sizeof(pseudo_header) + header_length];
+    memcpy(buffer, &pseudo_header, sizeof(pseudo_header));
+    memcpy(buffer + sizeof(pseudo_header), header, header_length);
+
+    return checksum(buffer, sizeof(buffer));
 }

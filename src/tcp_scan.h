@@ -79,9 +79,6 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
 /** Send a raw TCP SYN packet to IPv6 target */
 int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Ipv6_header *ipv6_header, Tcp_header *tcp_header);
 
-/** Calculate TCP checksum with pseudo-header (RFC 793) */
-uint16_t tcp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header);
-
 /** Main TCP scanning function for all targets */
 int run_tcp_scan(const Config *config);
 

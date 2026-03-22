@@ -24,4 +24,11 @@ int set_target_port(struct sockaddr *addr, int port);
 /** Bind a socket to a specific network interface */
 int bind_to_interface(int socket_fd, const char *interface_name);
 
+/** RFC1071 checksum over arbitrary bytes */
+uint16_t checksum(const void *data, size_t length);
+
+/** RFC1071 checksum over IPv4 pseudo-header + L4 header bytes */
+uint16_t checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip,
+	uint8_t protocol, const void *header, size_t header_length);
+
 #endif /* ADDR_HELPERS_H */

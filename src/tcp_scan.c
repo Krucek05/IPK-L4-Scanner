@@ -11,27 +11,6 @@
 
 /* ========================= Helpers ========================= */
 
-// check if packet was not corrupted 
-// Checksum calculation adapted from https://tools.ietf.org/html/rfc1071 and AI suggestions, but implemented for my usage
-int checksum (const void *data, size_t length) {
-    uint32_t sum = 0;
-    const uint16_t *ptr = data;
-
-    while (length > CHECKSUM_SINGLE_BYTE_REMAINDER) {
-        sum += *ptr++;
-        length -= CHECKSUM_WORD_SIZE_BYTES;
-    }
-
-    if (length > 0) {
-        sum += *(const uint8_t *)ptr;
-    }
-
-    while (sum >> CHECKSUM_CARRY_SHIFT) {
-        sum = (sum & CHECKSUM_LOW_16_MASK) + (sum >> CHECKSUM_CARRY_SHIFT);
-    }
-    return ~sum;
-}
-
 // Determines the local IP address
 int get_local_ip_address(const char *target_interface_name, int family, void *result_ip) {
     struct ifaddrs *interface_list_head;
@@ -137,29 +116,6 @@ static uint16_t tcp_checksum_ipv6(struct in6_addr source, struct in6_addr destin
     return checksum(buffer, sizeof(buffer));
 }
 
-// Helper for IPv4 TCP checksum
-uint16_t tcp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Tcp_header *tcp_header) {
-    struct {
-        uint32_t source;
-        uint32_t destination;
-        uint8_t zero;
-        uint8_t proto;
-        uint16_t tcp_len;
-    } pseudo_header;
-
-    pseudo_header.source = source_ip.s_addr;
-    pseudo_header.destination = destination_ip.s_addr;
-    pseudo_header.zero = 0;
-    pseudo_header.proto = IPPROTO_TCP;
-    pseudo_header.tcp_len = htons(sizeof(Tcp_header));
-
-    uint8_t buffer[sizeof(pseudo_header) + sizeof(Tcp_header)];
-    memcpy(buffer, &pseudo_header, sizeof(pseudo_header));
-    memcpy(buffer + sizeof(pseudo_header), tcp_header, sizeof(Tcp_header));
-
-    return checksum(buffer, sizeof(buffer));
-}
-
 static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_port) {
     memset(tcp_header, 0, sizeof(Tcp_header));
 
@@ -171,7 +127,7 @@ static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_po
     tcp_header->window_size = htons(SLIDING_WINDOW_SIZE);
     tcp_header->urgent_pointer = 0;
 
-    // Checksum will be calculated by caller after setting dest_port.
+    // Checksum will be calculated by caller after setting destination_port.
 }
 
 // Configures the raw socket for sending TCP SYN packets,
@@ -239,7 +195,7 @@ int create_tcp_syn_packet_ipv4(struct in_addr source_ip, struct in_addr destinat
     ip_header->ttl = DEFAULT_IP_TTL;
     ip_header->protocol = IPPROTO_TCP;
     ip_header->source_ip = source_ip;
-    ip_header->dest_ip = destination_ip;
+    ip_header->destination_ip = destination_ip;
     ip_header->header_checksum = checksum(ip_header, sizeof(Ipv4_header));
 
     initialize_tcp_syn_header(tcp_header, source_port);
@@ -258,7 +214,7 @@ int create_tcp_syn_packet_ipv6(struct in6_addr source_ip, struct in6_addr destin
     ipv6_header->next_header = IPPROTO_TCP;
     ipv6_header->hop_limit = DEFAULT_IPV6_HOP_LIMIT;
     ipv6_header->source_ip = source_ip;
-    ipv6_header->dest_ip = destination_ip;
+    ipv6_header->destination_ip = destination_ip;
 
     initialize_tcp_syn_header(tcp_header, source_port);
 
@@ -276,7 +232,7 @@ int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_add
     ip6_header.ip6_nxt = ipv6_header->next_header;
     ip6_header.ip6_hops = ipv6_header->hop_limit;
     ip6_header.ip6_src = ipv6_header->source_ip;
-    ip6_header.ip6_dst = ipv6_header->dest_ip;
+    ip6_header.ip6_dst = ipv6_header->destination_ip;
 
     char packet[sizeof(struct ip6_hdr) + sizeof(Tcp_header)];
     memcpy(packet, &ip6_header, sizeof(ip6_header));
@@ -518,30 +474,31 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
     Tcp_header tcp_header;
     memset(&tcp_header, 0, sizeof(tcp_header));
 
-    struct sockaddr_in *dst4 = (struct sockaddr_in *)target->ai_addr;
-    struct sockaddr_in6 *dst6 = (struct sockaddr_in6 *)target->ai_addr;
+    struct sockaddr_in *destination4 = (struct sockaddr_in *)target->ai_addr;
+    struct sockaddr_in6 *destination6 = (struct sockaddr_in6 *)target->ai_addr;
 
     Ipv4_header ip_header;
     Ipv6_header ipv6_header;
     if (target->ai_family == AF_INET) {
-        create_tcp_syn_packet_ipv4(local_ip4, dst4->sin_addr, MY_RANDOM_PORT, &ip_header, &tcp_header);
+        create_tcp_syn_packet_ipv4(local_ip4, destination4->sin_addr, MY_RANDOM_PORT, &ip_header, &tcp_header);
     } else {
-        create_tcp_syn_packet_ipv6(local_ip6, dst6->sin6_addr, MY_RANDOM_PORT, &ipv6_header, &tcp_header);
+        create_tcp_syn_packet_ipv6(local_ip6, destination6->sin6_addr, MY_RANDOM_PORT, &ipv6_header, &tcp_header);
     }
 
     for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
         if (!config->tcp_ports[port_number]) continue;
 
-        tcp_header.dest_port = htons(port_number);
+        tcp_header.destination_port = htons(port_number);
         tcp_header.checksum = 0;
 
         int send_status = ERROR;
         if (target->ai_family == AF_INET) {
-            tcp_header.checksum = tcp_checksum_ipv4(local_ip4, dst4->sin_addr, &tcp_header);
-            send_status = send_tcp_syn_ipv4(raw_socket, dst4, &ip_header, &tcp_header);
+            tcp_header.checksum = checksum_ipv4(local_ip4, destination4->sin_addr,
+                IPPROTO_TCP, &tcp_header, sizeof(Tcp_header));
+            send_status = send_tcp_syn_ipv4(raw_socket, destination4, &ip_header, &tcp_header);
         } else {
-            tcp_header.checksum = tcp_checksum_ipv6(local_ip6, dst6->sin6_addr, &tcp_header);
-            send_status = send_tcp_syn_ipv6(raw_socket, dst6, &ipv6_header, &tcp_header);
+            tcp_header.checksum = tcp_checksum_ipv6(local_ip6, destination6->sin6_addr, &tcp_header);
+            send_status = send_tcp_syn_ipv6(raw_socket, destination6, &ipv6_header, &tcp_header);
         }
 
         if (send_status != OK) continue;
