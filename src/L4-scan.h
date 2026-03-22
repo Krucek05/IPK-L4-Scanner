@@ -62,6 +62,12 @@ void print_help(void);
 /** Parse command-line arguments into Config structure */
 int cli_argument_parsing(int argc, char *argv[], Config *config);
 
+/** Parse a single port string into integer value */
+int parse_single_port(const char *str);
+
+/** Parse comma/range port expression into selected ports array */
+int parse_ports(Config *config, bool *ports);
+
 /* Scanning functions */
 
 /** Run TCP port scanning for configured targets and ports */

@@ -50,7 +50,7 @@ int interface(void) {
 int parse_single_port(const char *str) {
     char *end;
     long port = strtol(str, &end, 10);
-    if (end == str || *end != '\0' || port < 0 || port > 65535) {
+    if (end == str || *end != '\0' || port < 1 || port > 65535) {
         fprintf(stderr, "Error: Invalid port '%s'. Must be 1-65535.\n", str);
         return ERROR;
     }
@@ -204,6 +204,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
     return OK;
 }
 
+#ifndef UNIT_TEST
 int main(int argc, char *argv[]) {
     
     Config *config = calloc(1, sizeof(Config));
@@ -231,3 +232,4 @@ int main(int argc, char *argv[]) {
     free(config);
     return 0;
 }
+#endif

@@ -6,7 +6,12 @@ SRCS    = $(wildcard src/*.c)
 OBJS    = $(SRCS:.c=.o)
 HDRS    = $(wildcard src/*.h)
 
-.PHONY: all clean test NixDevShellName
+TEST_TARGET = tests/parsing_tests
+TEST_SRCS   = tests/test_parsing.c src/L4-scan.c
+TEST_CFLAGS = $(CFLAGS) -DUNIT_TEST
+TEST_LDFLAGS = -lcriterion
+
+.PHONY: all clean test test-parsing check-criterion NixDevShellName
 
 all: $(TARGET)
 
@@ -16,14 +21,22 @@ $(TARGET): $(OBJS)
 %.o: %.c $(HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-test: $(TARGET)
-	@echo "Running tests..."
-	@chmod +x tests/test_nmap_comparison.py
-	./tests/test_nmap_comparison.py 127.0.0.1 -i lo
-	./tests/test_parsing.sh
+test: test-parsing
+
+test-parsing: check-criterion $(TEST_TARGET)
+	@echo "Running Criterion parsing tests..."
+	./$(TEST_TARGET)
+
+check-criterion:
+	@pkg-config --exists criterion || { \
+		exit 1; \
+	}
+
+$(TEST_TARGET): $(TEST_SRCS) $(HDRS)
+	$(CC) $(TEST_CFLAGS) -o $@ $(TEST_SRCS) $(TEST_LDFLAGS)
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(TEST_TARGET)
 
 NixDevShellName:
 	@echo c

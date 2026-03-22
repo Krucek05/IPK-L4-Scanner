@@ -10,7 +10,7 @@
 /** TCP header structure for raw packet construction (RFC 793) */
 typedef struct  {
     uint16_t source_port;
-    uint16_t dest_port;
+    uint16_t destination_port;
     uint32_t seq_num;
     uint32_t ack_num;
     uint8_t data_offset; // 4 bits
@@ -30,7 +30,7 @@ typedef struct  {
     uint8_t protocol;
     uint16_t header_checksum;
     struct in_addr source_ip;
-    struct in_addr dest_ip;
+    struct in_addr destination_ip;
 } Ipv4_header;
 
 typedef struct {
@@ -39,7 +39,7 @@ typedef struct {
     uint8_t next_header;
     uint8_t hop_limit;
     struct in6_addr source_ip;
-    struct in6_addr dest_ip;
+    struct in6_addr destination_ip;
 } Ipv6_header;
 
 #define IPV4_VERSION_IHL(header_bytes) ((4 << 4) | ((header_bytes) / 4))
