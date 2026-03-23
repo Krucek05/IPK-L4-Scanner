@@ -62,6 +62,7 @@ run_test "localhost -i eth0 -t 80" 0  # Order should not matter
 # --- Invalid Commands & Errors ---
 echo "--- Invalid Errors ---"
 run_test "" 1                      # No arguments
+run_test "-i 1 -1 5 Host"1         # Invalid interface name
 run_test "-i eth0" 1               # Missing HOST
 run_test "localhost" 1             # Missing -i
 run_test "-i eth0 host1 host2" 1   # Multiple hosts

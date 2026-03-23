@@ -51,7 +51,7 @@ typedef struct{
     bool tcp_ports[MAX_PORTS];
     bool udp_ports[MAX_PORTS];
     const char *interface_name;
-    int timeout_ms;
+    unsigned timeout_ms;
 } Config;
 
 /* Command-line parsing and main functions */
@@ -67,6 +67,8 @@ int parse_single_port(const char *str);
 
 /** Parse comma/range port expression into selected ports array */
 int parse_ports(Config *config, bool *ports);
+
+long calculate_elapsed_ms(struct timeval start_time);
 
 /* Scanning functions */
 

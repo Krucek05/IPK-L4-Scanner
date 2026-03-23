@@ -9,6 +9,8 @@
 
 
 void print_help(void) {
+    printf("IPK Project 1 - OMEGA: L4 Port Scanner\n");
+    printf("\n");
     printf("Usage:\n");
     printf("  ./ipk-L4-scan -i INTERFACE [-u PORTS] [-t PORTS] HOST [-w TIMEOUT]\n");
     printf("  ./ipk-L4-scan -i\n");
@@ -35,11 +37,6 @@ void print_help(void) {
     printf("Examples:\n");
     printf("  ./ipk-L4-scan -i eth0 -u 53,67 2001:67c:1220:809::93e5:917\n");
     printf("  ./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz\n");
-}
-
-int interface(void) {
-
-    return 0;
 }
 
 // print_interfacees(Config *config) {
@@ -106,6 +103,8 @@ int parse_ports(Config *config, bool *ports) {
 }
 
 int cli_argument_parsing(int argc, char *argv[], Config *config) {
+    bool port_string_set = false;
+    bool interface_set = false;
     if(argc == 1){
         fprintf(stderr, "Error: No arguments provided. Use -h or --help for usage information.\n");
         return ERROR;
@@ -117,29 +116,37 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
             return OK;
         }
 
-        if (strcmp(argv[i], "-i") == 0){
+        if (strcmp(argv[i], "-i") == 0 && !interface_set){
+            struct if_nameindex *if_nix = NULL, *ifs = NULL;
             if(i + 1 < argc && argv[i + 1][0] != '-') {
+                if_nix = if_nameindex(); // Get list of interfaces
+                if (if_nix == NULL) {
+                    fprintf(stderr,"if_nameindex");
+                    return ERROR;
+                }
                 config->interface_name = argv[i + 1];
+                for (ifs = if_nix; ifs->if_index != 0; ifs++) {
+                    if (strcmp(ifs->if_name, config->interface_name) == 0) {
+                        interface_set = true;
+                        break; // Found the specified interface
+                    }
+                }
+                if_freenameindex(if_nix);
                 i++; // Skip the next argument since it's the interface name
-            }else {
-                 if (argc == 2) { 
-                    struct ifaddrs *ifaddr, *ifa;
-                    if (getifaddrs(&ifaddr) == -1) {
-                        perror("getifaddrs");
-                        exit(EXIT_FAILURE);
+            } else {
+                if_nix = if_nameindex();
+                if (if_nix == NULL) {
+                    fprintf(stderr,"if_nameindex");
+                    return ERROR;
+                }
+                if (argc == 2) { 
+                    for (ifs = if_nix; ifs->if_index != 0; ifs++) {
+                        printf("%s\n", ifs->if_name);
                     }
-
-                    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-                        if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET)
-                            continue;
-                            // prints twice Lo, fix ?
-                        if ((ifa->ifa_flags & IFF_UP) == 0)
-                            continue;
-                        printf("%s\n", ifa->ifa_name);
-                    }
-                    freeifaddrs(ifaddr);
+                    if_freenameindex(if_nix);
                     exit(0); 
                 } else {
+                    if_freenameindex(if_nix);
                     fprintf(stderr, "Error: Missing interface name for -i option.\n");
                     return ERROR;
                 }
@@ -156,6 +163,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
                 fprintf(stderr, "Error: Missing port string for -t option.\n");
                 return ERROR;
             }
+            port_string_set = true;
         }
 
         else if (strcmp(argv[i], "-u") == 0){
@@ -168,6 +176,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
                 fprintf(stderr, "Error: Missing port string for -u option.\n");
                 return ERROR;
             }
+            port_string_set = true;
         }
 
         else if (strcmp(argv[i], "-w") == 0){
@@ -201,11 +210,31 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
         }
     }
 
-    if (config->server_hostname == NULL || config->interface_name == NULL) {
-        fprintf(stderr, "Error: HOST and -i INTERFACE are strictly required.\n");
+    if (config->server_hostname == NULL) {
+        fprintf(stderr, "Error: HOST is strictly required.\n");
         return ERROR;
     }
+
+    if (!interface_set) {
+        fprintf(stderr, "Error: Correct network interface must be specified with -i option.\n");
+        return ERROR;
+    }
+
+    if (!port_string_set) {
+        fprintf(stderr, "Error: At least one of -t PORTS or -u PORTS must be specified.\n");
+        return ERROR;
+    }
+
     return OK;
+}
+
+// Calculate elapsed time in milliseconds since the provided start time
+long calculate_elapsed_ms(struct timeval start_time) {
+    struct timeval current_time;
+    gettimeofday(&current_time, NULL);
+    
+    return (current_time.tv_sec - start_time.tv_sec) * 1000 + 
+           (current_time.tv_usec - start_time.tv_usec) / 1000;
 }
 
 #ifndef UNIT_TEST
