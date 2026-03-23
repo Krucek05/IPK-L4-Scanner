@@ -1,31 +1,9 @@
 // udp_scan.c - Implements UDP scan 
 // Author: Kristian Rucek > xrucekk00
 
-
-
 #include "L4-scan.h"
 #include "udp_scan.h"
 #include "addr_helpers.h"
-
-
-// static const char *udp_status_to_text(Port_status status) {
-//     if (status == PORT_STATUS_OPEN) return "open";
-//     if (status == PORT_STATUS_CLOSED) return "closed";
-//     return "open";
-// }
-
-// static int create_udp_socket(const struct addrinfo *target) {
-//     return socket(target->ai_family, target->ai_socktype, target->ai_protocol);
-// }
-
-// uint16_t udp_checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip, Udp_header *udp_header) {
-//     return checksum_ipv4(source_ip, destination_ip, IPPROTO_UDP, udp_header, sizeof(Udp_header));
-// }
-
-// uint16_t udp_checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip, Udp_header *udp_header) {
-//     return checksum_ipv6(source_ip, destination_ip, IPPROTO_UDP, udp_header, sizeof(Udp_header));
-// }
-
 
 int create_udp_socket(const struct addrinfo *target) {
     int probe_socket =  socket(target->ai_family, target->ai_socktype, target->ai_protocol);
@@ -189,6 +167,6 @@ int run_udp_scan(const Config *config) {
             continue;
         }
     }
-    // freeaddrinfo(targets);
+    freeaddrinfo(targets);
     return OK;
 }

@@ -209,6 +209,7 @@ int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
     hints.ai_socktype = SOCK_STREAM;
     
     if (getaddrinfo(config->server_hostname, NULL, &hints, targets) != 0) {
+        freeaddrinfo(*targets);
         return ERROR;
     }
     return OK;
