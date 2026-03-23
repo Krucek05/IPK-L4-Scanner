@@ -13,8 +13,8 @@ PARSING_BIN   = $(TEST_DIR)/parsing_tests
 EXIT_CODE_BIN = $(TEST_DIR)/exit_codes_tests
 TEST_SCRIPT   = $(TEST_DIR)/test_parsing.sh
 
-TEST_CFLAGS = $(CFLAGS) -DUNIT_TEST
-TEST_LDFLAGS = -lcriterion $(LDFLAGS)
+TEST_CFLAGS  = $(CFLAGS) -DUNIT_TEST $(shell pkg-config --cflags criterion)
+TEST_LDFLAGS = $(shell pkg-config --libs criterion) -lpcap
 
 .PHONY: all clean test test-functional NixDevShellName
 

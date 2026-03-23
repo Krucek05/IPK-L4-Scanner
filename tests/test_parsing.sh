@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 # Test script for ipk-L4-scan argument parsing
+# This tests were AI generated based on the expected behavior of the application and are meant to cover various valid and invalid input scenarios.
+# Used mainly for testing the CLI parsing logic and error handling of the application.
+# Tests were mostly replaced with new Criterion unit tests, but this script can still be useful for quick manual testing or as a reference for expected command formats.
 APP="./ipk-L4-scan"
 
 # Compile first if not compiled
