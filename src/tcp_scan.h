@@ -74,11 +74,15 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
 /** Send a raw TCP SYN packet to IPv6 target */
 int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_address, Tcp_header *tcp_header);
 
+int get_link_header_length(int link_type);
+
 /** Main TCP scanning function for all targets */
 int run_tcp_scan(const Config *config);
 
 /** Resolve hostname to IP address(es) using getaddrinfo */
 int resolve_tcp_targets(const Config *config, struct addrinfo **targets);
+
+pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target);
 
 /** Scan TCP ports for a single target IP address */
 int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target);

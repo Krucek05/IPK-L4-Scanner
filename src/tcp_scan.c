@@ -201,7 +201,7 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
 
 // Resolves the target hostname to a list of addresses (IPv4 and/or IPv6) based on the configuration
 int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
-    struct addrinfo hints;
+    struct addrinfo hints; // suggested parameters for getaddrinfo
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC; // Allow both IPv4 and IPv6.
     hints.ai_socktype = SOCK_STREAM;
@@ -210,15 +210,6 @@ int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
         return ERROR;
     }
     return OK;
-}
-
-// Calculate elapsed time in milliseconds since the provided start time
-long calculate_elapsed_ms(struct timeval start_time) {
-    struct timeval current_time;
-    gettimeofday(&current_time, NULL);
-    
-    return (current_time.tv_sec - start_time.tv_sec) * 1000 + 
-           (current_time.tv_usec - start_time.tv_usec) / 1000;
 }
 
 // Get the length of the link layer header based on the pcap link type
@@ -234,7 +225,7 @@ int get_link_header_length(int link_type) {
 }
 
 // Listen for incoming packets and check if they are responses to our SYN packet for the specified target port
-int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_port, int timeout_ms) {
+int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_port, unsigned timeout_ms) {
     struct pcap_pkthdr *packet_header;
     const u_char *packet_data;
     struct timeval start_time;
@@ -251,7 +242,7 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
         if (result < 0) return ERROR;
 
         int link_header_length = get_link_header_length(pcap_datalink(pcap_handle));
-        if ((int)packet_header->caplen <= link_header_length) continue;
+        if ((int)packet_header->caplen <= link_header_length) continue; // Not enough data for IP header
 
         const uint8_t *ip_start = packet_data + link_header_length;
         uint8_t version = IP_VERSION_FROM_FIRST_BYTE(ip_start[0]);
@@ -297,9 +288,11 @@ pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) 
         return NULL;
     }
 
+    // Set snaplen to maximum to ensure we capture the full packet, which is needed to analyze TCP headers correctly
     if (pcap_set_snaplen(pcap_handle, SLIDING_WINDOW_SIZE) != 0) {
         fprintf(stderr, "Warning: Could not set snaplen.\n");
     }
+    // Set promiscuous mode to capture all packets on the interface, not just those addressed to us.
     if (pcap_set_promisc(pcap_handle, 1) != 0) {
         fprintf(stderr, "Warning: Could not set promisc mode.\n");
     }
@@ -373,12 +366,13 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
             return ERROR;
         }
     } else {
+        fprintf(stderr, "Unsupported address family for target %s\n", target_ip_string);
         return ERROR;
     }
 
     if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != OK) {
         if (target->ai_family == AF_INET6) {
-            fprintf(stderr, " 6 route to %s via interface %s\n", target_ip_string,
+            fprintf(stderr, "No Ipv6 route to %s via interface %s\n", target_ip_string,
                 config->interface_name ? config->interface_name : "any");
         } else {
             fprintf(stderr, "No IPv4 route to %s via interface %s\n", target_ip_string,
