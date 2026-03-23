@@ -82,7 +82,7 @@ int run_tcp_scan(const Config *config);
 /** Resolve hostname to IP address(es) using getaddrinfo */
 int resolve_tcp_targets(const Config *config, struct addrinfo **targets);
 
-pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target);
+pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target, bool is_tcp);
 
 /** Scan TCP ports for a single target IP address */
 int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target);

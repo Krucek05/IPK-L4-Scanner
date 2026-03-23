@@ -34,7 +34,7 @@ int create_udp_socket(const struct addrinfo *target) {
         return ERROR;
     }
 
-    return OK;
+    return probe_socket;
 }
 
 int resolve_udp_target(const Config *config, struct addrinfo **targets) {
@@ -42,6 +42,7 @@ int resolve_udp_target(const Config *config, struct addrinfo **targets) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC; // Allow both IPv4 and IPv6.
     hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = 0;
 
     if(getaddrinfo(config->server_hostname, NULL, &hints, targets) != 0) {
         fprintf(stderr,"getaddrinfo\n");
@@ -50,9 +51,17 @@ int resolve_udp_target(const Config *config, struct addrinfo **targets) {
     return OK;
 }
 
-int send_udp(int socket, const struct sockaddr_in *destination_address) {
-    if(sendto(socket, NULL, 0, 0 ,destination_address, sizeof(socket)) < 0) {
+int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address) {
+    if(sendto(socket, NULL, 0, 0, (struct sockaddr *)destination_address, sizeof(struct sockaddr_in)) < 0) {
         fprintf(stderr,"sendto ipv4 failed\n");
+        return ERROR;
+    }
+    return OK;
+}
+
+int send_udp_ipv6(int socket, const struct sockaddr_in6 *destination_address) {
+    if(sendto(socket, NULL, 0, 0, (struct sockaddr *)destination_address, sizeof(struct sockaddr_in6)) < 0) {
+        fprintf(stderr,"sendto ipv6 failed\n");
         return ERROR;
     }
     return OK;
@@ -120,25 +129,40 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
         return ERROR;
     }
 
-    pcap_t *handle = initialize_pcap_listener(config, target);
+    pcap_t *handle = initialize_pcap_listener(config, target, false);
     if (handle == NULL) {
+        close(udp_socket);
         return ERROR;
     }
 
     for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
         if (!config->udp_ports[port_number]) continue;
 
+        int send_status = ERROR;
+
+        if (target->ai_family == AF_INET) {
+            struct sockaddr_in *dest4 = (struct sockaddr_in *)target->ai_addr;
+            dest4->sin_port = htons(port_number);
+            send_status = send_udp_ipv4(udp_socket, dest4);
+        } else {
+            struct sockaddr_in6 *dest6 = (struct sockaddr_in6 *)target->ai_addr;
+            dest6->sin6_port = htons(port_number);
+            send_status = send_udp_ipv6(udp_socket, dest6);
+        }
+
+        if (send_status == ERROR) continue;
 
         int result = catch_icmp_response(handle, config->timeout_ms);
+
         if (result == ERROR) {
             fprintf(stderr, "Error capturing ICMP response\n");
             close(udp_socket);
             pcap_close(handle);
             return ERROR;
         } else if (result == PORT_STATUS_OPEN) {
-            printf("%s udp %d open\n", target_ip_string, port_number);
+            printf("%s %d udp open\n", target_ip_string, port_number);
         } else {
-            printf("%s udp %d closed\n", target_ip_string, port_number);
+            printf("%s %d udp closed\n", target_ip_string, port_number);
         }
     }
 
@@ -165,8 +189,6 @@ int run_udp_scan(const Config *config) {
             continue;
         }
     }
-
-    printf("UDP scan is not fully implemented yet. %s\n", config->server_hostname);
     // freeaddrinfo(targets);
     return OK;
 }

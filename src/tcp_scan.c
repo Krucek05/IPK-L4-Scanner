@@ -120,11 +120,13 @@ static int can_reach_target_on_interface(int family, const struct sockaddr *targ
     }
 
     if (interface_name != NULL && bind_to_interface(probe_socket, interface_name) != OK) {
+        fprintf(stderr,"bind_to_interface failed\n");
         close(probe_socket);
         return ERROR;
     }
 
     if (connect(probe_socket, target_address, target_address_length) != 0) {
+        fprintf(stderr,"connect failed\n");
         close(probe_socket);
         return ERROR;
     }
@@ -275,9 +277,9 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
 }
 
 // Initializes a pcap handle for listening to responses from the target IP
-// Sets filter to capture only TCP packets from the target IP and configures timeout and non-blocking mode
+// Sets filter to capture TCP packets or ICMP from the target IP and configures timeout and non-blocking mode
 // This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted for specific use case and requirements
-pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) {
+pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target, bool is_tcp) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *pcap_handle;
     const char *interface_name = config->interface_name ? config->interface_name : "any";
@@ -319,10 +321,29 @@ pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target) 
 
     // Compile and set filter to capture only relevant TCP packets from target IP
     struct bpf_program filter_program;
+    int filter_expression_length = 0;
     char filter_expression[TCP_PCAP_FILTER_MAX_LENGTH];
     char target_ip_string[INET6_ADDRSTRLEN];
     ip_string_from_sockaddr(target->ai_addr, target_ip_string, sizeof(target_ip_string));
-    int filter_expression_length = snprintf(filter_expression, sizeof(filter_expression), "src host %s and tcp", target_ip_string);
+    if (is_tcp) {
+        filter_expression_length = snprintf(filter_expression, sizeof(filter_expression), "src host %s and tcp", target_ip_string);
+        if (filter_expression_length < 0 || (size_t)filter_expression_length >= sizeof(filter_expression)) {
+            fprintf(stderr, "Could not build pcap filter expression\n");
+            pcap_close(pcap_handle);
+            return NULL;
+        }
+    } else {
+        if (target->ai_family == AF_INET) {
+            filter_expression_length = snprintf(filter_expression, sizeof(filter_expression), "src host %s and icmp", target_ip_string);
+        } else {
+             filter_expression_length = snprintf(filter_expression, sizeof(filter_expression), "src host %s and icmp6", target_ip_string);
+        }
+        if (filter_expression_length < 0 || (size_t)filter_expression_length >= sizeof(filter_expression)) {
+            fprintf(stderr, "Could not build pcap filter expression\n");
+            pcap_close(pcap_handle);
+            return NULL;
+        }
+    }
     if (filter_expression_length < 0 || (size_t)filter_expression_length >= sizeof(filter_expression)) {
         fprintf(stderr, "Could not build pcap filter expression\n");
         pcap_close(pcap_handle);
@@ -381,7 +402,7 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
         return ERROR;
     }
 
-    pcap_t *pcap_handle = initialize_pcap_listener(config, target);
+    pcap_t *pcap_handle = initialize_pcap_listener(config, target, true);
     if (pcap_handle == NULL) {
         return ERROR;
     }
