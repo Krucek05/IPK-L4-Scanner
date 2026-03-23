@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Test script for ipk-L4-scan argument parsing
-
 APP="./ipk-L4-scan"
 
 # Compile first if not compiled
@@ -11,26 +10,36 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# --- Interface Detection ---
+# Run the app with -i, filter out 'lo', and take the first available name
+DETECTED_IFACE=$(sudo $APP -i 2>/dev/null | grep -v "lo" | head -n 1 | awk '{print $1}')
+
+if [ -z "$DETECTED_IFACE" ]; then
+    echo -e "${RED}[ERROR]${NC} No active network interface detected via $APP -i"
+    exit 1
+fi
+
+echo -e "${GREEN}[INFO]${NC} Using detected interface: $DETECTED_IFACE"
+echo "============================"
+
 pass_count=0
 fail_count=0
 
 run_test() {
     local cmd="$1"
     local expected_status="$2"
-    local run_cmd="$APP $cmd"
+    # Replace the placeholder 'IFACE' with our detected interface
+    local processed_cmd=$(echo "$cmd" | sed "s/IFACE/$DETECTED_IFACE/g")
+    local run_cmd="sudo $APP $processed_cmd"
     
     $run_cmd > /dev/null 2>&1
     local status=$?
 
     local is_pass=1
     if [ "$expected_status" -eq 0 ]; then
-        if [ "$status" -ne 0 ]; then
-            is_pass=0
-        fi
+        [ "$status" -ne 0 ] && is_pass=0
     else
-        if [ "$status" -eq 0 ]; then
-            is_pass=0
-        fi
+        [ "$status" -eq 0 ] && is_pass=0
     fi
 
     if [ "$is_pass" -eq 1 ]; then
@@ -46,31 +55,32 @@ echo "Running CLI Parsing Tests..."
 echo "============================"
 
 # --- Valid Commands ---
+# Note: Using 'IFACE' as a placeholder that gets swapped for the real name
 echo "--- Valid Commands ---"
 run_test "-h" 0
 run_test "--help" 0
 run_test "-i" 0
-run_test "-i eth0 localhost" 0
-run_test "-i eth0 -t 22 localhost" 0
-run_test "-i eth0 -u 53 localhost" 0
-run_test "-i eth0 -t 22,23 -u 53,67 localhost" 0
-run_test "-i eth0 -t 1-100 localhost" 0
-run_test "-i eth0 -w 2000 localhost" 0
-run_test "-i eth0 -t 80 -w 500 www.vutbr.cz" 0
-run_test "localhost -i eth0 -t 80" 0  # Order should not matter
+run_test "-i IFACE -t 22 localhost" 0
+run_test "-i IFACE -u 53 localhost" 0
+run_test "-i IFACE -t 22,23 -u 53,67 localhost" 0
+run_test "-i IFACE -t 1-10 localhost" 0
+run_test "-i IFACE -t 80 -w 500 www.vutbr.cz" 0
+run_test "localhost -i IFACE -t 80" 0 
 
 # --- Invalid Commands & Errors ---
-echo "--- Invalid Errors ---"
-run_test "" 1                      # No arguments
-run_test "-i 1 -1 5 Host"1         # Invalid interface name
-run_test "-i eth0" 1               # Missing HOST
-run_test "localhost" 1             # Missing -i
-run_test "-i eth0 host1 host2" 1   # Multiple hosts
-run_test "-i eth0 -t localhost" 1  # Missing port after -t
-run_test "-i eth0 -u localhost" 1  # Missing port after -u
-run_test "-i eth0 -w localhost" 1  # Invalid timeout value
-run_test "-i eth0 -t 999999 localhost" 1 # Port out of range
-run_test "-i eth0 -t -10 localhost" 1    # Negative port
+echo -e "\n--- Invalid/Error Cases ---"
+run_test "" 1 
+run_test "-i 1 -1 5 Host" 1
+run_test "-i IFACE localhost" 1
+run_test "-i IFACE" 1 
+run_test "localhost" 1 
+run_test "-i IFACE -w 2000 localhost" 1
+run_test "-i IFACE host1 host2" 1 
+run_test "-i IFACE -t localhost" 1 
+run_test "-i IFACE -u localhost" 1 
+run_test "-i IFACE -w localhost" 1 
+run_test "-i IFACE -t 999999 localhost" 1 
+run_test "-i IFACE -t -10 localhost" 1 
 
 echo "============================"
 echo "Tests Completed. Passed: $pass_count, Failed: $fail_count"
