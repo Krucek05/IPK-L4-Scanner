@@ -32,6 +32,7 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
 
     if (getifaddrs(&interface_list_head) == -1) {
         fprintf(stderr,"getifaddrs\n");
+        freeifaddrs(interface_list_head);
         return ERROR;
     }
     

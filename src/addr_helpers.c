@@ -21,7 +21,7 @@ bool has_selected_ports(const bool *ports) {
     }
 
     for (int port = 1; port < MAX_PORTS; port++) {
-        if (ports[port]) return true;
+        if (ports[port]) return true; // Found at least one port
     }
 
     return false;
@@ -29,6 +29,7 @@ bool has_selected_ports(const bool *ports) {
 
 int ip_string_from_ipv4(const struct sockaddr_in *address, char *out, size_t out_size) {
     if (inet_ntop(AF_INET, &address->sin_addr, out, out_size) == NULL) {
+
         return ERROR;
     }
     return EX_OK;

@@ -147,7 +147,8 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
             printf("%s %d udp closed\n", target_ip_string, port_number);
         }
     }
-
+    pcap_close(handle);
+    close(udp_socket);
     return EX_OK;
 }
 
@@ -171,6 +172,7 @@ int run_udp_scan(const Config *config) {
             continue;
         }
     }
+    
     freeaddrinfo(targets);
     return EX_OK;
 }

@@ -155,6 +155,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                         printf("%s\n", ifs->if_name);
                     }
                     if_freenameindex(if_nix);
+                    free(config);
                     exit(EX_OK); 
                 } else {
                     if_freenameindex(if_nix);
