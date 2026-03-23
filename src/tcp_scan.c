@@ -1,5 +1,8 @@
-// tcp_scan.c - Implements TCP SYN scan functionality using raw sockets and libpcap for packet capture.
-// Author: Kristian Rucek > xrucekk00
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
 
 #include "L4-scan.h"
 #include "tcp_scan.h"
@@ -53,7 +56,7 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
             if ((current_interface->ifa_flags & IFF_LOOPBACK) == 0 && ipv4_address->sin_addr.s_addr != htonl(INADDR_LOOPBACK)) {
                 *(struct in_addr *)result_ip = ipv4_address->sin_addr;
                 freeifaddrs(interface_list_head);
-                return OK;
+                return EX_OK;
             }
 
             // Keep first matching IPv4 as fallback (needed e.g. for lo -> 127.0.0.1).
@@ -77,19 +80,19 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
 
         *(struct in6_addr *)result_ip = ipv6_address->sin6_addr;
         freeifaddrs(interface_list_head);
-        return OK;
+        return EX_OK;
     }
 
     if (family == AF_INET && ipv4_candidate_found) {
         *(struct in_addr *)result_ip = ipv4_candidate;
         freeifaddrs(interface_list_head);
-        return OK;
+        return EX_OK;
     }
 
     if (family == AF_INET6 && ipv6_candidate_found) {
         *(struct in6_addr *)result_ip = ipv6_candidate;
         freeifaddrs(interface_list_head);
-        return OK;
+        return EX_OK;
     }
 
     freeifaddrs(interface_list_head);
@@ -119,7 +122,7 @@ static int can_reach_target_on_interface(int family, const struct sockaddr *targ
         return ERROR;
     }
 
-    if (interface_name != NULL && bind_to_interface(probe_socket, interface_name) != OK) {
+    if (interface_name != NULL && bind_to_interface(probe_socket, interface_name) != EX_OK) {
         fprintf(stderr,"bind_to_interface failed\n");
         close(probe_socket);
         return ERROR;
@@ -132,7 +135,7 @@ static int can_reach_target_on_interface(int family, const struct sockaddr *targ
     }
 
     close(probe_socket);
-    return OK;
+    return EX_OK;
 }
 
 /* ========================= Packet Builders ========================= */
@@ -156,7 +159,7 @@ int create_tcp_syn_packet_ipv4(struct in_addr source_ip, struct in_addr destinat
 
     initialize_tcp_syn_header(tcp_header, source_port);
 
-    return OK;
+    return EX_OK;
 }
 
 // Initializes TCP header for an IPv6 SYN packet (IPv6 header is provided by kernel)
@@ -166,7 +169,7 @@ int create_tcp_syn_packet_ipv6(struct in6_addr source_ip, struct in6_addr destin
     (void)destination_ip;
     initialize_tcp_syn_header(tcp_header, source_port);
 
-    return OK;
+    return EX_OK;
 }
 
 /* ========================= Packet Senders ========================= */
@@ -179,7 +182,7 @@ int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_add
         fprintf(stderr, "sendto ipv6 failed\n");
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 // Send a raw TCP SYN packet to the target IPv4 address
@@ -196,7 +199,7 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
         return ERROR;
     }
 
-    return OK;
+    return EX_OK;
 }
 
 /* ========================= Target and Capture Helpers ========================= */
@@ -212,7 +215,7 @@ int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
         freeaddrinfo(*targets);
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 // Get the length of the link layer header based on the pcap link type
@@ -378,12 +381,12 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
     struct in6_addr local_ip6;
 
     if (target->ai_family == AF_INET) {
-        if (get_local_ip_address(config->interface_name, AF_INET, &local_ip4) != OK) {
+        if (get_local_ip_address(config->interface_name, AF_INET, &local_ip4) != EX_OK) {
             fprintf(stderr, "Could not determine local IPv4 address.\n");
             return ERROR;
         }
     } else if (target->ai_family == AF_INET6) {
-        if (get_local_ip_address(config->interface_name, AF_INET6, &local_ip6) != OK) {
+        if (get_local_ip_address(config->interface_name, AF_INET6, &local_ip6) != EX_OK) {
             fprintf(stderr, "Could not determine local IPv6 address.\n");
             return ERROR;
         }
@@ -392,7 +395,7 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
         return ERROR;
     }
 
-    if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != OK) {
+    if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != EX_OK) {
         if (target->ai_family == AF_INET6) {
             fprintf(stderr, "No Ipv6 route to %s via interface %s\n", target_ip_string,
                 config->interface_name ? config->interface_name : "any");
@@ -416,13 +419,13 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
     }
 
     if (target->ai_family == AF_INET) {
-        if (configure_raw_socket(raw_socket, target->ai_family, config->interface_name) != OK) {
+        if (configure_raw_socket(raw_socket, target->ai_family, config->interface_name) != EX_OK) {
             close(raw_socket);
             pcap_close(pcap_handle);
             return ERROR;
         }
     } else {
-        if (config->interface_name != NULL && bind_to_interface(raw_socket, config->interface_name) != OK) {
+        if (config->interface_name != NULL && bind_to_interface(raw_socket, config->interface_name) != EX_OK) {
             close(raw_socket);
             pcap_close(pcap_handle);
             return ERROR;
@@ -459,7 +462,7 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
             send_status = send_tcp_syn_ipv6(raw_socket, destination6, &tcp_header);
         }
 
-        if (send_status != OK) continue;
+        if (send_status != EX_OK) continue;
 
         int response_status = PORT_STATUS_FILTERED;
 
@@ -480,17 +483,17 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
 
     close(raw_socket);
     pcap_close(pcap_handle);
-    return OK;
+    return EX_OK;
 }
 
 // Main TCP scanning function for all targets
 int run_tcp_scan(const Config *config) {
     if (!has_selected_ports(config->tcp_ports)) {
-        return OK;
+        return EX_OK;
     }
 
     struct addrinfo *targets = NULL;
-    if (resolve_tcp_targets(config, &targets) != OK) {
+    if (resolve_tcp_targets(config, &targets) != EX_OK) {
         return ERROR;
     }
 
@@ -507,5 +510,5 @@ int run_tcp_scan(const Config *config) {
     }
     
     freeaddrinfo(targets);
-    return OK;
+    return EX_OK;
 }

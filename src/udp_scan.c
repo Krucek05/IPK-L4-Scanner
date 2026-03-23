@@ -1,5 +1,9 @@
-// udp_scan.c - Implements UDP scan 
-// Author: Kristian Rucek > xrucekk00
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
+
 
 #include "L4-scan.h"
 #include "udp_scan.h"
@@ -26,7 +30,7 @@ int resolve_udp_target(const Config *config, struct addrinfo **targets) {
         fprintf(stderr,"getaddrinfo\n");
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address) {
@@ -34,7 +38,7 @@ int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address) {
         fprintf(stderr,"sendto ipv4 failed\n");
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 int send_udp_ipv6(int socket, const struct sockaddr_in6 *destination_address) {
@@ -42,7 +46,7 @@ int send_udp_ipv6(int socket, const struct sockaddr_in6 *destination_address) {
         fprintf(stderr,"sendto ipv6 failed\n");
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
@@ -144,14 +148,14 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
         }
     }
 
-    return OK;
+    return EX_OK;
 }
 
 
 int run_udp_scan(const Config *config) {
 
     struct addrinfo *targets = NULL;
-    if (resolve_udp_target(config, &targets) != OK) {
+    if (resolve_udp_target(config, &targets) != EX_OK) {
         fprintf(stderr, "Error resolving target\n");
         return ERROR;
     }
@@ -168,5 +172,5 @@ int run_udp_scan(const Config *config) {
         }
     }
     freeaddrinfo(targets);
-    return OK;
+    return EX_OK;
 }

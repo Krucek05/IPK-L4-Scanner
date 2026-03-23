@@ -1,13 +1,15 @@
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
+
+
 #ifndef L4_SCAN_H
 #define L4_SCAN_H
 
-/**
- * IPK Project 1 - OMEGA: L4 Port Scanner
- * TCP and UDP port scanning using raw sockets and libpcap
- * Author: Kristian Rucek (xrucekk00)
- */
-
 #include <arpa/inet.h>
+#include <sysexits.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -27,11 +29,12 @@
 #define MY_RANDOM_PORT 54321
 #define SEQ_NUM 123456789
 #define SLIDING_WINDOW_SIZE 65535
+#define PORT_ERROR -1
+
 
 typedef enum{
-  OK,
-  ERROR = -1 ,
-  MALLOC_ERROR,
+    ERROR = -1 ,
+    MALLOC_ERROR,
 } Program_Status;
 
 typedef enum{

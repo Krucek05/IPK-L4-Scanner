@@ -1,3 +1,9 @@
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
+
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -25,14 +31,14 @@ int ip_string_from_ipv4(const struct sockaddr_in *address, char *out, size_t out
     if (inet_ntop(AF_INET, &address->sin_addr, out, out_size) == NULL) {
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 int ip_string_from_ipv6(const struct sockaddr_in6 *address, char *out, size_t out_size) {
     if (inet_ntop(AF_INET6, &address->sin6_addr, out, out_size) == NULL) {
         return ERROR;
     }
-    return OK;
+    return EX_OK;
 }
 
 // Converts a generic socket address into printable IP text.
@@ -43,14 +49,14 @@ void ip_string_from_sockaddr(const struct sockaddr *addr, char *out, size_t out_
 
     if (addr->sa_family == AF_INET) {
         const struct sockaddr_in *v4 = (const struct sockaddr_in *)addr;
-        if (ip_string_from_ipv4(v4, out, out_size) == OK) return;
+        if (ip_string_from_ipv4(v4, out, out_size) == EX_OK) return;
         snprintf(out, out_size, "<unknown>");
         return;
     }
 
     if (addr->sa_family == AF_INET6) {
         const struct sockaddr_in6 *v6 = (const struct sockaddr_in6 *)addr;
-        if (ip_string_from_ipv6(v6, out, out_size) == OK) return;
+        if (ip_string_from_ipv6(v6, out, out_size) == EX_OK) return;
         snprintf(out, out_size, "<unknown>");
         return;
     }
@@ -65,12 +71,12 @@ int set_target_port(struct sockaddr *addr, int port) {
 
     if (addr->sa_family == AF_INET) {
         ((struct sockaddr_in *)addr)->sin_port = htons((in_port_t)port);
-        return OK;
+        return EX_OK;
     }
 
     if (addr->sa_family == AF_INET6) {
         ((struct sockaddr_in6 *)addr)->sin6_port = htons((in_port_t)port);
-        return OK;
+        return EX_OK;
     }
 
     return ERROR;
@@ -86,7 +92,7 @@ int bind_to_interface(int socket_fd, const char *interface_name) {
         return ERROR;
     }
 
-    return OK;
+    return EX_OK;
 }
 
 int configure_raw_socket(int raw_socket, int family, const char *interface_name) {
@@ -106,11 +112,11 @@ int configure_raw_socket(int raw_socket, int family, const char *interface_name)
         return ERROR;
     }
 
-    if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != OK) {
+    if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != EX_OK) {
         return ERROR;
     }
 
-    return OK;
+    return EX_OK;
 }
 
 // check if packet was not corrupted 

@@ -1,6 +1,8 @@
-// This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
-// Author: Kristian Rucek > xrucekk00
-
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
 
 #include "L4-scan.h"
 #include <ifaddrs.h>
@@ -49,14 +51,14 @@ void print_help(bool *exit_after_print) {
 //     printf("Available interfaces:\n");
 //     // todo: implement interface listing
 
-//     return OK;
+//     return EX_OK;
 // }
 int parse_single_port(const char *str) {
     char *end;
     long port = strtol(str, &end, 10);
     if (end == str || *end != '\0' || port < 1 || port > 65535) {
         fprintf(stderr, "Error: Invalid port '%s'. Must be 1-65535.\n", str);
-        return ERROR;
+        return PORT_ERROR; // EX_USAGE is not suitable here since this function is used after initial parsing, so we return -1 to indicate invalid port
     }
     return (int)port;
 }
@@ -66,7 +68,7 @@ int parse_ports(Config *config, bool *ports) {
     char *port_string_copy = malloc(port_string_length + 1);
     if (!port_string_copy) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
-        return MALLOC_ERROR;
+        return EX_OSERR;
     }
 
     strcpy(port_string_copy, config->port_string);
@@ -78,21 +80,21 @@ int parse_ports(Config *config, bool *ports) {
         if (dash) { // Range of ports
             *dash = '\0';
             int start = parse_single_port(token);
-            if (start == ERROR) {
+            if (start == PORT_ERROR) {
                 free(port_string_copy);
                 fprintf(stderr, "Error: Invalid port range start '%s'\n", token);
-                return ERROR;
+                return EX_USAGE;
             }
             int end   = parse_single_port(dash + 1);
-            if (end == ERROR) {
+            if (end == PORT_ERROR) {
                 free(port_string_copy);
                 fprintf(stderr, "Error: Invalid port range end\n");
-                return ERROR;
+                return EX_USAGE;
             }
             if (start < 0 || end < 0 || start > end) {
                 free(port_string_copy);
                 fprintf(stderr, "Error: Invalid port range \n");
-                return ERROR;
+                return EX_USAGE;
             }
             for (int p = start; p <= end; p++)
                 ports[p] = true;
@@ -100,7 +102,7 @@ int parse_ports(Config *config, bool *ports) {
             int port = parse_single_port(token);
             if (port < 0) { 
                 free(port_string_copy);
-                return ERROR;
+                return EX_USAGE;
             }
             ports[port] = true;
         }
@@ -108,7 +110,7 @@ int parse_ports(Config *config, bool *ports) {
     }
 
     free(port_string_copy);
-    return OK;
+    return EX_OK;
 }
 
 int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_after_print) {
@@ -116,13 +118,13 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
     bool interface_set = false;
     if(argc == 1){
         fprintf(stderr, "Error: No arguments provided. Use -h or --help for usage information.\n");
-        return ERROR;
+        return EX_USAGE;
     }
 
     for(int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0){
             print_help(exit_after_print);
-            return OK;
+            return EX_OK;
         }
 
         if (strcmp(argv[i], "-i") == 0 && !interface_set){
@@ -131,7 +133,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                 if_nix = if_nameindex(); // Get list of interfaces
                 if (if_nix == NULL) {
                     fprintf(stderr,"if_nameindex");
-                    return ERROR;
+                    return EX_USAGE;
                 }
                 config->interface_name = argv[i + 1];
                 for (ifs = if_nix; ifs->if_index != 0; ifs++) {
@@ -146,18 +148,18 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                 if_nix = if_nameindex();
                 if (if_nix == NULL) {
                     fprintf(stderr,"if_nameindex");
-                    return ERROR;
+                    return EX_USAGE;
                 }
                 if (argc == 2) { 
                     for (ifs = if_nix; ifs->if_index != 0; ifs++) {
                         printf("%s\n", ifs->if_name);
                     }
                     if_freenameindex(if_nix);
-                    exit(0); 
+                    exit(EX_OK); 
                 } else {
                     if_freenameindex(if_nix);
                     fprintf(stderr, "Error: Missing interface name for -i option.\n");
-                    return ERROR;
+                    return EX_USAGE;
                 }
             }
         }
@@ -166,11 +168,11 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 config->port_string = argv[i + 1];
                 i++;
-                if (parse_ports(config, config->tcp_ports) != OK)
-                    return ERROR;
+                if (parse_ports(config, config->tcp_ports) != EX_OK)
+                    return EX_USAGE;
             } else {
                 fprintf(stderr, "Error: Missing port string for -t option.\n");
-                return ERROR;
+                return EX_USAGE;
             }
             port_string_set = true;
         }
@@ -179,11 +181,11 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 config->port_string = argv[i + 1];
                 i++;
-                if (parse_ports(config, config->udp_ports) != OK)
-                    return ERROR;
+                if (parse_ports(config, config->udp_ports) != EX_OK)
+                    return EX_USAGE;
             } else {
                 fprintf(stderr, "Error: Missing port string for -u option.\n");
-                return ERROR;
+                return EX_USAGE;
             }
             port_string_set = true;
         }
@@ -191,7 +193,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
         else if (strcmp(argv[i], "-w") == 0){
             if(i + 1 >= argc || argv[i + 1][0] == '-') {
                 fprintf(stderr, "Error: Missing timeout value for -w option.\n");
-                return ERROR;
+                return EX_USAGE;
             }
             char *timeout_string = argv[i+1];
             char *end;
@@ -201,19 +203,19 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                     config->timeout_ms = timeout;
                 } else {
                     fprintf(stderr, "Error: Wrong timeout input\n");
-                return ERROR;
+                return EX_USAGE;
                 }
 
             } else {
                 fprintf(stderr, "Error: Wrong timeout input\n");
-                return ERROR;
+                return EX_USAGE;
             }
             i++;
         }
         else {
              if (config->server_hostname != NULL) {
                 fprintf(stderr, "Error: Multiple hosts specified.\n");
-                return ERROR;
+                return EX_USAGE;
             }
             config->server_hostname = argv[i];
         }
@@ -221,20 +223,20 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
 
     if (config->server_hostname == NULL) {
         fprintf(stderr, "Error: HOST is strictly required.\n");
-        return ERROR;
+        return EX_USAGE;
     }
 
     if (!interface_set) {
         fprintf(stderr, "Error: Correct network interface must be specified with -i option.\n");
-        return ERROR;
+        return EX_USAGE;
     }
 
     if (!port_string_set) {
         fprintf(stderr, "Error: At least one of -t PORTS or -u PORTS must be specified.\n");
-        return ERROR;
+        return EX_USAGE;
     }
 
-    return OK;
+    return EX_OK;
 }
 
 // Calculate elapsed time in milliseconds since the provided start time
@@ -253,32 +255,37 @@ int main(int argc, char *argv[]) {
     Config *config = calloc(1, sizeof(Config));
     if (!config) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
-        return MALLOC_ERROR;
+        return EX_OSERR;
     }
     
     config->timeout_ms = DEFAULT_TIMEOUT_MS;
 
-    if (cli_argument_parsing(argc, argv, config, &exit_after_print) != OK) {
+    int parse_status = cli_argument_parsing(argc, argv, config, &exit_after_print);
+    if (parse_status == EX_USAGE) {
         free(config);
-        return ERROR;
+        return EX_USAGE;
+    } else if (parse_status == EX_OSERR) {
+        free(config);
+        return EX_OSERR;
     }
+
 
     if (exit_after_print) {
         free(config);
-        return OK;
+        return EX_OK;
     }
 
-    if (run_tcp_scan(config) != OK) {
+    if (run_tcp_scan(config) != EX_OK) {
         free(config);
         return ERROR;
     }
 
-    if (run_udp_scan(config) != OK) {
+    if (run_udp_scan(config) != EX_OK) {
         free(config);
         return ERROR;
     }
 
     free(config);
-    return OK;
+    return EX_OK;
 }
 #endif

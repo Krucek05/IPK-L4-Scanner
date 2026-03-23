@@ -1,3 +1,10 @@
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
+
+
 #ifndef TCP_SCAN_H
 #define TCP_SCAN_H
 

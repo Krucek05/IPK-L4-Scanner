@@ -1,5 +1,8 @@
-// udp_scan.h - Header for UDP scanning functions
-// Author: Kristian Rucek > xrucekk00
+/**
+ * This file is part of the IPK Project 1 - OMEGA: L4 Scanner.
+ * // 23.3. 2026 IPK 2026, FIT VUT Brno
+ *  Author: Kristian Rucek > xrucekk00
+ */
 
 #ifndef UDP_SCAN_H
 #define UDP_SCAN_H
