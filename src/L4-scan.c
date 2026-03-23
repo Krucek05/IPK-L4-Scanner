@@ -8,7 +8,8 @@
 #include <net/if.h>
 
 
-void print_help(void) {
+void print_help(bool *exit_after_print) {
+    printf("----------------------------------------------------------------\n");
     printf("IPK Project 1 - OMEGA: L4 Port Scanner\n");
     printf("\n");
     printf("Usage:\n");
@@ -37,6 +38,11 @@ void print_help(void) {
     printf("Examples:\n");
     printf("  ./ipk-L4-scan -i eth0 -u 53,67 2001:67c:1220:809::93e5:917\n");
     printf("  ./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz\n");
+    printf("\n");
+    *exit_after_print = true;
+    if (*exit_after_print) {
+        printf("---------------Finishing program execution---------------------\n");
+    }
 }
 
 // print_interfacees(Config *config) {
@@ -74,15 +80,18 @@ int parse_ports(Config *config, bool *ports) {
             int start = parse_single_port(token);
             if (start == ERROR) {
                 free(port_string_copy);
+                fprintf(stderr, "Error: Invalid port range start '%s'\n", token);
                 return ERROR;
             }
             int end   = parse_single_port(dash + 1);
             if (end == ERROR) {
                 free(port_string_copy);
+                fprintf(stderr, "Error: Invalid port range end\n");
                 return ERROR;
             }
             if (start < 0 || end < 0 || start > end) {
                 free(port_string_copy);
+                fprintf(stderr, "Error: Invalid port range \n");
                 return ERROR;
             }
             for (int p = start; p <= end; p++)
@@ -102,7 +111,7 @@ int parse_ports(Config *config, bool *ports) {
     return OK;
 }
 
-int cli_argument_parsing(int argc, char *argv[], Config *config) {
+int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_after_print) {
     bool port_string_set = false;
     bool interface_set = false;
     if(argc == 1){
@@ -112,7 +121,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config) {
 
     for(int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0){
-            print_help();
+            print_help(exit_after_print);
             return OK;
         }
 
@@ -239,6 +248,7 @@ long calculate_elapsed_ms(struct timeval start_time) {
 
 #ifndef UNIT_TEST
 int main(int argc, char *argv[]) {
+    bool exit_after_print = false;
     
     Config *config = calloc(1, sizeof(Config));
     if (!config) {
@@ -247,9 +257,15 @@ int main(int argc, char *argv[]) {
     }
     
     config->timeout_ms = DEFAULT_TIMEOUT_MS;
-    if (cli_argument_parsing(argc, argv, config) != OK) {
+
+    if (cli_argument_parsing(argc, argv, config, &exit_after_print) != OK) {
         free(config);
         return ERROR;
+    }
+
+    if (exit_after_print) {
+        free(config);
+        return OK;
     }
 
     if (run_tcp_scan(config) != OK) {
@@ -263,6 +279,6 @@ int main(int argc, char *argv[]) {
     }
 
     free(config);
-    return 0;
+    return OK;
 }
 #endif

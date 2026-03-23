@@ -57,10 +57,10 @@ typedef struct{
 /* Command-line parsing and main functions */
 
 /** Print usage help and exit information */
-void print_help(void);
+void print_help(bool *exit_after_print);
 
 /** Parse command-line arguments into Config structure */
-int cli_argument_parsing(int argc, char *argv[], Config *config);
+int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_after_print);
 
 /** Parse a single port string into integer value */
 int parse_single_port(const char *str);
