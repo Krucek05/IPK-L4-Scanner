@@ -23,6 +23,7 @@
 #include <pcap.h>
 #include <netinet/if_ether.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #define MAX_PROCESSED_SCANNS 2
 #define DEFAULT_TIMEOUT_MS 1000
@@ -34,7 +35,10 @@
 #define SEQ_NUM 123456789
 #define SLIDING_WINDOW_SIZE 65535
 #define PORT_ERROR -1
+#define PROGRAM_TERMINATED_ERROR 130
 
+
+extern volatile sig_atomic_t program_terminated;
 
 typedef enum{
     ERROR = -1 ,

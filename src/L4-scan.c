@@ -6,6 +6,8 @@
 
 #include "L4-scan.h"
 
+volatile sig_atomic_t program_terminated = 0;
+
 void print_help(Config *config) {
     printf("----------------------------------------------------------------\n");
     printf("IPK Project 1 - OMEGA: L4 Port Scanner\n");
@@ -250,8 +252,23 @@ long calculate_elapsed_ms(struct timeval start_time) {
            (current_time.tv_usec - start_time.tv_usec) / 1000;
 }
 
+// Sets program termination flag on signal
+void handle_signal() {
+    program_terminated = 1;
+}
+
 #ifndef UNIT_TEST
 int main(int argc, char *argv[]) {
+    struct sigaction sig_action;
+
+    sig_action.sa_handler = handle_signal;
+    sigemptyset(&sig_action.sa_mask);
+    sig_action.sa_flags = 0;
+
+    sigaction(SIGINT, &sig_action, NULL);
+    sigaction(SIGTERM, &sig_action, NULL);
+
+
     Config *config = calloc(1, sizeof(Config));
     if (!config) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
@@ -278,7 +295,19 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i < MAX_PROCESSED_SCANNS && config->order_of_scanning[i] != SCAN_NONE; i++) {
+        if (program_terminated) {
+            fprintf(stderr, "\nScan interrupted before completion\n Finishing program \n");
+            free(config);
+            return PROGRAM_TERMINATED_ERROR;  // SIGINT/SIGTERM received
+        }
+        
         int status = (config->order_of_scanning[i] == SCAN_TCP) ? run_tcp_scan(config) : run_udp_scan(config);
+        
+        if (status == EX_TEMPFAIL) {
+            free(config);
+            fprintf(stderr, "\nScan interrupted before completion\n Finishing program \n");
+            return PROGRAM_TERMINATED_ERROR; // SIGINT/SIGTERM received
+        }
         
         if (status != EX_OK) {
             free(config);

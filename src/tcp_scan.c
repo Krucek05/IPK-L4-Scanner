@@ -236,7 +236,7 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
     
     gettimeofday(&start_time, NULL);
 
-    while (1) {
+    while (!program_terminated) {
         if (calculate_elapsed_ms(start_time) > timeout_ms) {
             return PORT_STATUS_FILTERED;
         }
@@ -276,6 +276,14 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
             return PORT_STATUS_FILTERED;
         }
     }
+
+    // Signal received during scan
+    if (program_terminated) {
+        fprintf(stderr, "\nScan interrupted by signal\n");
+        return EX_TEMPFAIL;
+    }
+    return PORT_STATUS_FILTERED;
+
 }
 
 // Initializes a pcap handle for listening to responses from the target IP
@@ -443,13 +451,13 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
         create_tcp_syn_packet_ipv6(local_ip6, destination6->sin6_addr, MY_RANDOM_PORT, &tcp_header);
     }
 
-    for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
+    for (int port_number = 1; port_number < MAX_PORTS && !program_terminated; port_number++) {
         if (!config->tcp_ports[port_number]) continue;
 
         tcp_header.destination_port = htons(port_number);
         tcp_header.checksum = 0;
 
-        int send_status = ERROR;
+        int send_status = EX_OSERR;
         if (target->ai_family == AF_INET) {
             tcp_header.checksum = checksum_ipv4(local_ip4, destination4->sin_addr,
                 IPPROTO_TCP, &tcp_header, sizeof(Tcp_header));
@@ -474,8 +482,13 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
             printf("%s %d tcp open\n", target_ip_string, port_number);
         } else if (response_status == PORT_STATUS_CLOSED) {
             printf("%s %d tcp closed\n", target_ip_string, port_number);
-        } else {
+        } else if (response_status == PORT_STATUS_FILTERED){
             printf("%s %d tcp filtered\n", target_ip_string, port_number);
+        } else {
+            // Signal interrupted the scan
+            close(raw_socket);
+            pcap_close(pcap_handle);
+            return EX_TEMPFAIL;
         }
     }
 
@@ -497,7 +510,7 @@ int run_tcp_scan(const Config *config) {
             continue;
         }
 
-        if (scan_tcp_ports_for_one_target(config, target) == ERROR) {
+        if (scan_tcp_ports_for_one_target(config, target) == EX_OSERR) {
             fprintf(stderr, "Error scanning target\n");
             continue;
         }

@@ -56,7 +56,7 @@ int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
 
     gettimeofday(&start_time, NULL);
 
-    while (1) {
+    while (!program_terminated) {
         if (calculate_elapsed_ms(start_time) > timeout_ms) {
             return PORT_STATUS_OPEN; // No response within timeout
         }
@@ -99,6 +99,13 @@ int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
             }
         }
     }
+
+    // Signal received during scan
+    if (program_terminated) {
+        fprintf(stderr, "\nScan interrupted by signal\n");
+        return EX_TEMPFAIL;
+    }
+    return PORT_STATUS_OPEN;
 }
 
 
@@ -117,10 +124,10 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
         return EX_OSERR;
     }
 
-    for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
+    for (int port_number = 1; port_number < MAX_PORTS && !program_terminated; port_number++) {
         if (!config->udp_ports[port_number]) continue;
 
-        int send_status = ERROR;
+        int send_status = EX_OSERR;
 
         if (target->ai_family == AF_INET) {
             struct sockaddr_in *dest4 = (struct sockaddr_in *)target->ai_addr;
@@ -132,16 +139,16 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
             send_status = send_udp_ipv6(udp_socket, dest6);
         }
 
-        if (send_status == ERROR) continue;
+        if (send_status == EX_OSERR) continue;
 
-        int result = catch_icmp_response(handle, config->timeout_ms);
+        int response_status = catch_icmp_response(handle, config->timeout_ms);
 
-        if (result == ERROR) {
+        if (response_status == EX_OSERR || response_status == EX_TEMPFAIL) {
             fprintf(stderr, "Error capturing ICMP response\n");
             close(udp_socket);
             pcap_close(handle);
-            return EX_OSERR;
-        } else if (result == PORT_STATUS_OPEN) {
+            return response_status;
+        } else if (response_status == PORT_STATUS_OPEN) {
             printf("%s %d udp open\n", target_ip_string, port_number);
         } else {
             printf("%s %d udp closed\n", target_ip_string, port_number);
@@ -166,7 +173,7 @@ int run_udp_scan(const Config *config) {
             continue;
         }
 
-        if (scan_udp_ports_for_one_target(config, target) == ERROR) {
+        if (scan_udp_ports_for_one_target(config, target) == EX_OSERR) {
             fprintf(stderr, "Error scanning target\n");
             continue;
         }
