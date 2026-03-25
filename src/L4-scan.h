@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
+#include <net/if.h>
 #include <ifaddrs.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -23,8 +24,11 @@
 #include <netinet/if_ether.h>
 #include <stdbool.h>
 
+#define MAX_PROCESSED_SCANNS 2
 #define DEFAULT_TIMEOUT_MS 1000
 #define MAX_TIMEOUT_MS 3000
+#define MAX_PORT_NUMBER 65535
+#define MIN_PORT_NUMBER 1
 #define MAX_PORTS 65536
 #define MY_RANDOM_PORT 54321
 #define SEQ_NUM 123456789
@@ -37,10 +41,7 @@ typedef enum{
     MALLOC_ERROR,
 } Program_Status;
 
-typedef enum{
-    PROTOCOL_TCP,
-    PROTOCOL_UDP,
-} Protocol;
+typedef enum {SCAN_NONE, SCAN_TCP, SCAN_UDP } ScanType;
 
 typedef enum{
     PORT_STATUS_OPEN,
@@ -55,15 +56,17 @@ typedef struct{
     bool udp_ports[MAX_PORTS];
     const char *interface_name;
     unsigned timeout_ms;
+    bool exit_after_print;
+    ScanType order_of_scanning[MAX_PROCESSED_SCANNS]; // Stores which flag was seen 1st and 2nd
 } Config;
 
 /* Command-line parsing and main functions */
 
 /** Print usage help and exit information */
-void print_help(bool *exit_after_print);
+void print_help(Config *config);
 
 /** Parse command-line arguments into Config structure */
-int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_after_print);
+int cli_argument_parsing(int argc, char *argv[], Config *config);
 
 /** Parse a single port string into integer value */
 int parse_single_port(const char *str);

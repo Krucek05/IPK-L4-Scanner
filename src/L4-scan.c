@@ -5,12 +5,8 @@
  */
 
 #include "L4-scan.h"
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <net/if.h>
 
-
-void print_help(bool *exit_after_print) {
+void print_help(Config *config) {
     printf("----------------------------------------------------------------\n");
     printf("IPK Project 1 - OMEGA: L4 Port Scanner\n");
     printf("\n");
@@ -41,22 +37,16 @@ void print_help(bool *exit_after_print) {
     printf("  ./ipk-L4-scan -i eth0 -u 53,67 2001:67c:1220:809::93e5:917\n");
     printf("  ./ipk-L4-scan -i eth0 -w 1000 -t 80,443,8080 www.vutbr.cz\n");
     printf("\n");
-    *exit_after_print = true;
-    if (*exit_after_print) {
+    config->exit_after_print = true;
+    if (config->exit_after_print) {
         printf("---------------Finishing program execution---------------------\n");
     }
 }
 
-// print_interfacees(Config *config) {
-//     printf("Available interfaces:\n");
-//     // todo: implement interface listing
-
-//     return EX_OK;
-// }
 int parse_single_port(const char *str) {
     char *end;
     long port = strtol(str, &end, 10);
-    if (end == str || *end != '\0' || port < 1 || port > 65535) {
+    if (end == str || *end != '\0' || port < MIN_PORT_NUMBER || port > MAX_PORT_NUMBER) {
         fprintf(stderr, "Error: Invalid port '%s'. Must be 1-65535.\n", str);
         return PORT_ERROR; // EX_USAGE is not suitable here since this function is used after initial parsing, so we return -1 to indicate invalid port
     }
@@ -113,9 +103,9 @@ int parse_ports(Config *config, bool *ports) {
     return EX_OK;
 }
 
-int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_after_print) {
-    bool port_string_set = false;
+int cli_argument_parsing(int argc, char *argv[], Config *config) {
     bool interface_set = false;
+
     if(argc == 1){
         fprintf(stderr, "Error: No arguments provided. Use -h or --help for usage information.\n");
         return EX_USAGE;
@@ -123,7 +113,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
 
     for(int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0){
-            print_help(exit_after_print);
+            print_help(config);
             return EX_OK;
         }
 
@@ -175,7 +165,12 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                 fprintf(stderr, "Error: Missing port string for -t option.\n");
                 return EX_USAGE;
             }
-            port_string_set = true;
+
+            if(config->order_of_scanning[0] == SCAN_NONE){
+                config->order_of_scanning[0] = SCAN_TCP;
+            } else if (config->order_of_scanning[0] == SCAN_UDP && config->order_of_scanning[1] == SCAN_NONE){
+                config->order_of_scanning[1] = SCAN_TCP;
+            }
         }
 
         else if (strcmp(argv[i], "-u") == 0){
@@ -188,7 +183,13 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
                 fprintf(stderr, "Error: Missing port string for -u option.\n");
                 return EX_USAGE;
             }
-            port_string_set = true;
+
+            if(config->order_of_scanning[0] == SCAN_NONE){
+                config->order_of_scanning[0] = SCAN_UDP;
+            } else if (config->order_of_scanning[0] == SCAN_TCP && config->order_of_scanning[1] == SCAN_NONE){
+                config->order_of_scanning[1] = SCAN_UDP;
+            }
+
         }
 
         else if (strcmp(argv[i], "-w") == 0){
@@ -232,7 +233,7 @@ int cli_argument_parsing(int argc, char *argv[], Config *config, bool *exit_afte
         return EX_USAGE;
     }
 
-    if (!port_string_set) {
+    if (config->order_of_scanning[0] == SCAN_NONE) {
         fprintf(stderr, "Error: At least one of -t PORTS or -u PORTS must be specified.\n");
         return EX_USAGE;
     }
@@ -251,8 +252,6 @@ long calculate_elapsed_ms(struct timeval start_time) {
 
 #ifndef UNIT_TEST
 int main(int argc, char *argv[]) {
-    bool exit_after_print = false;
-    
     Config *config = calloc(1, sizeof(Config));
     if (!config) {
         fprintf(stderr, "Error: Memory allocation failed.\n");
@@ -260,8 +259,10 @@ int main(int argc, char *argv[]) {
     }
     
     config->timeout_ms = DEFAULT_TIMEOUT_MS;
+    config->order_of_scanning[0] = SCAN_NONE;
+    config->order_of_scanning[1] = SCAN_NONE;
 
-    int parse_status = cli_argument_parsing(argc, argv, config, &exit_after_print);
+    int parse_status = cli_argument_parsing(argc, argv, config);
     if (parse_status == EX_USAGE) {
         free(config);
         return EX_USAGE;
@@ -271,19 +272,18 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if (exit_after_print) {
+    if (config->exit_after_print) {
         free(config);
         return EX_OK;
     }
 
-    if (run_tcp_scan(config) != EX_OK) {
-        free(config);
-        return ERROR;
-    }
-
-    if (run_udp_scan(config) != EX_OK) {
-        free(config);
-        return ERROR;
+    for (int i = 0; i < MAX_PROCESSED_SCANNS && config->order_of_scanning[i] != SCAN_NONE; i++) {
+        int status = (config->order_of_scanning[i] == SCAN_TCP) ? run_tcp_scan(config) : run_udp_scan(config);
+        
+        if (status != EX_OK) {
+            free(config);
+            return EX_OSERR;
+        }
     }
 
     free(config);

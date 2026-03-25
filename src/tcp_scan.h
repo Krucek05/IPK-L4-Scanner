@@ -8,11 +8,16 @@
 #ifndef TCP_SCAN_H
 #define TCP_SCAN_H
 
-#include "L4-scan.h"
 #include <stdint.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pcap.h>
+#include <netinet/ip6.h>
+#include <net/if.h>
+#include <time.h>
+#include <sys/time.h>
+
+#include "L4-scan.h"
 
 /** TCP header structure for raw packet construction (RFC 793) */
 typedef struct  {
@@ -69,7 +74,7 @@ typedef struct {
 #define IS_IPV4_VERSION(version) ((version) == IPV4_VERSION_VALUE)
 #define IS_IPV6_VERSION(version) ((version) == IPV6_VERSION_VALUE)
 
-#define TCP_PCAP_FILTER_MAX_LENGTH (INET6_ADDRSTRLEN + 32)
+#define PCAP_FILTER_MAX_LENGTH 256 // May be a bit less
 
 
 /** Get the local IP address for a specific network interface */

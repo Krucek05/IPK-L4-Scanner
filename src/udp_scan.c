@@ -13,7 +13,7 @@ int create_udp_socket(const struct addrinfo *target) {
     int probe_socket =  socket(target->ai_family, target->ai_socktype, target->ai_protocol);
     if (probe_socket < 0) {
         fprintf(stderr,"socket\n");
-        return ERROR;
+        return EX_OSERR;
     }
 
     return probe_socket;
@@ -28,7 +28,7 @@ int resolve_udp_target(const Config *config, struct addrinfo **targets) {
 
     if(getaddrinfo(config->server_hostname, NULL, &hints, targets) != 0) {
         fprintf(stderr,"getaddrinfo\n");
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -36,7 +36,7 @@ int resolve_udp_target(const Config *config, struct addrinfo **targets) {
 int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address) {
     if(sendto(socket, NULL, 0, 0, (struct sockaddr *)destination_address, sizeof(struct sockaddr_in)) < 0) {
         fprintf(stderr,"sendto ipv4 failed\n");
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -44,7 +44,7 @@ int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address) {
 int send_udp_ipv6(int socket, const struct sockaddr_in6 *destination_address) {
     if(sendto(socket, NULL, 0, 0, (struct sockaddr *)destination_address, sizeof(struct sockaddr_in6)) < 0) {
         fprintf(stderr,"sendto ipv6 failed\n");
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -63,7 +63,7 @@ int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
 
         int result = pcap_next_ex(pcap_handle, &packet_header, &packet_data);
         if (result == 0) continue;
-        if (result < 0) return ERROR;
+        if (result < 0) return EX_OSERR;
 
         int link_header_length = get_link_header_length(pcap_datalink(pcap_handle));
         if ((int)packet_header->caplen <= link_header_length) continue;
@@ -108,13 +108,13 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
 
     int udp_socket = create_udp_socket(target);
     if (udp_socket < 0) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     pcap_t *handle = initialize_pcap_listener(config, target, false);
     if (handle == NULL) {
         close(udp_socket);
-        return ERROR;
+        return EX_OSERR;
     }
 
     for (int port_number = 1; port_number < MAX_PORTS; port_number++) {
@@ -140,7 +140,7 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
             fprintf(stderr, "Error capturing ICMP response\n");
             close(udp_socket);
             pcap_close(handle);
-            return ERROR;
+            return EX_OSERR;
         } else if (result == PORT_STATUS_OPEN) {
             printf("%s %d udp open\n", target_ip_string, port_number);
         } else {
@@ -154,11 +154,10 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
 
 
 int run_udp_scan(const Config *config) {
-
     struct addrinfo *targets = NULL;
     if (resolve_udp_target(config, &targets) != EX_OK) {
         fprintf(stderr, "Error resolving target\n");
-        return ERROR;
+        return EX_OSERR;
     }
 
     for (struct addrinfo *target = targets; target != NULL; target = target->ai_next) {

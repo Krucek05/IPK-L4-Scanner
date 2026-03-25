@@ -7,10 +7,7 @@
 #include "L4-scan.h"
 #include "tcp_scan.h"
 #include "addr_helpers.h"
-#include <netinet/ip6.h>
-#include <net/if.h>
-#include <time.h>
-#include <sys/time.h>
+
 
 /* ========================= Helpers ========================= */
 
@@ -27,18 +24,18 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
     struct in6_addr ipv6_candidate;
 
     if (result_ip == NULL || (family != AF_INET && family != AF_INET6)) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (getifaddrs(&interface_list_head) == -1) {
         fprintf(stderr,"getifaddrs\n");
         freeifaddrs(interface_list_head);
-        return ERROR;
+        return EX_OSERR;
     }
     
     if (target_interface_name == NULL) {
         freeifaddrs(interface_list_head);
-        return ERROR;
+        return EX_OSERR;
     }
 
     for (current_interface = interface_list_head; current_interface != NULL; current_interface = current_interface->ifa_next) {
@@ -97,7 +94,7 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
     }
 
     freeifaddrs(interface_list_head);
-    return ERROR;
+    return EX_OSERR;
 }
 
 static void initialize_tcp_syn_header(Tcp_header *tcp_header, uint16_t source_port) {
@@ -120,19 +117,19 @@ static int can_reach_target_on_interface(int family, const struct sockaddr *targ
     // We can check if the target is reachable on the specified interface by attempting to connect a UDP socket to the target.
     int probe_socket = socket(family, SOCK_DGRAM, 0);
     if (probe_socket < 0) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (interface_name != NULL && bind_to_interface(probe_socket, interface_name) != EX_OK) {
         fprintf(stderr,"bind_to_interface failed\n");
         close(probe_socket);
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (connect(probe_socket, target_address, target_address_length) != 0) {
         fprintf(stderr,"connect failed\n");
         close(probe_socket);
-        return ERROR;
+        return EX_OSERR;
     }
 
     close(probe_socket);
@@ -181,7 +178,7 @@ int send_tcp_syn_ipv6(int raw_socket, const struct sockaddr_in6 *destination_add
     if (sendto(raw_socket, tcp_header, sizeof(Tcp_header), 0,
                (const struct sockaddr *)destination_address, sizeof(*destination_address)) < 0) {
         fprintf(stderr, "sendto ipv6 failed\n");
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -197,7 +194,7 @@ int send_tcp_syn_ipv4(int raw_socket, const struct sockaddr_in *destination_addr
     
     if (sendto(raw_socket, packet, sizeof(packet), 0, (struct sockaddr *)&connection_destination_address, sizeof(connection_destination_address)) < 0) {
         fprintf(stderr,"sendto ipv4 failed\n");
-        return ERROR;
+        return EX_OSERR;
     }
 
     return EX_OK;
@@ -214,7 +211,7 @@ int resolve_tcp_targets(const Config *config, struct addrinfo **targets) {
     
     if (getaddrinfo(config->server_hostname, NULL, &hints, targets) != 0) {
         freeaddrinfo(*targets);
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -246,7 +243,7 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
 
         int result = pcap_next_ex(pcap_handle, &packet_header, &packet_data);
         if (result == 0) continue;
-        if (result < 0) return ERROR;
+        if (result < 0) return EX_OSERR;
 
         int link_header_length = get_link_header_length(pcap_datalink(pcap_handle));
         if ((int)packet_header->caplen <= link_header_length) continue; // Not enough data for IP header
@@ -283,7 +280,7 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
 
 // Initializes a pcap handle for listening to responses from the target IP
 // Sets filter to capture TCP packets or ICMP from the target IP and configures timeout and non-blocking mode
-// This code was inspired by https://www.tcpdump.org/pcap.html and AI suggestions, but adapted for specific use case and requirements
+// This code was inspired by https://www.tcpdump.org/pcap.html, but adapted for specific use case and requirements
 pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target, bool is_tcp) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *pcap_handle;
@@ -327,7 +324,7 @@ pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target, 
     // Compile and set filter to capture only relevant TCP packets from target IP
     struct bpf_program filter_program;
     int filter_expression_length = 0;
-    char filter_expression[TCP_PCAP_FILTER_MAX_LENGTH];
+    char filter_expression[PCAP_FILTER_MAX_LENGTH];
     char target_ip_string[INET6_ADDRSTRLEN];
     ip_string_from_sockaddr(target->ai_addr, target_ip_string, sizeof(target_ip_string));
     if (is_tcp) {
@@ -384,16 +381,16 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
     if (target->ai_family == AF_INET) {
         if (get_local_ip_address(config->interface_name, AF_INET, &local_ip4) != EX_OK) {
             fprintf(stderr, "Could not determine local IPv4 address.\n");
-            return ERROR;
+            return EX_OSERR;
         }
     } else if (target->ai_family == AF_INET6) {
         if (get_local_ip_address(config->interface_name, AF_INET6, &local_ip6) != EX_OK) {
             fprintf(stderr, "Could not determine local IPv6 address.\n");
-            return ERROR;
+            return EX_OSERR;
         }
     } else {
         fprintf(stderr, "Unsupported address family for target %s\n", target_ip_string);
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (can_reach_target_on_interface(target->ai_family, target->ai_addr, target->ai_addrlen, config->interface_name) != EX_OK) {
@@ -404,32 +401,32 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
             fprintf(stderr, "No IPv4 route to %s via interface %s\n", target_ip_string,
                 config->interface_name ? config->interface_name : "any");
         }
-        return ERROR;
+        return EX_OSERR;
     }
 
     pcap_t *pcap_handle = initialize_pcap_listener(config, target, true);
     if (pcap_handle == NULL) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     int raw_socket = socket(target->ai_family, SOCK_RAW, IPPROTO_TCP);
     if (raw_socket <= 0) {
         fprintf(stderr, "socket\n");
         pcap_close(pcap_handle);
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (target->ai_family == AF_INET) {
         if (configure_raw_socket(raw_socket, target->ai_family, config->interface_name) != EX_OK) {
             close(raw_socket);
             pcap_close(pcap_handle);
-            return ERROR;
+            return EX_OSERR;
         }
     } else {
         if (config->interface_name != NULL && bind_to_interface(raw_socket, config->interface_name) != EX_OK) {
             close(raw_socket);
             pcap_close(pcap_handle);
-            return ERROR;
+            return EX_OSERR;
         }
     }
 
@@ -489,13 +486,9 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
 
 // Main TCP scanning function for all targets
 int run_tcp_scan(const Config *config) {
-    if (!has_selected_ports(config->tcp_ports)) {
-        return EX_OK;
-    }
-
     struct addrinfo *targets = NULL;
     if (resolve_tcp_targets(config, &targets) != EX_OK) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     for (struct addrinfo *target = targets; target != NULL; target = target->ai_next) {

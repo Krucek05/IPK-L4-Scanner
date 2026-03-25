@@ -4,40 +4,20 @@
  *  Author: Kristian Rucek > xrucekk00
  */
 
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <string.h>
-#include <stdbool.h>
-
 #include "L4-scan.h"
 #include "addr_helpers.h"
-
-bool has_selected_ports(const bool *ports) {
-    if (ports == NULL) {
-        return false;
-    }
-
-    for (int port = 1; port < MAX_PORTS; port++) {
-        if (ports[port]) return true; // Found at least one port
-    }
-
-    return false;
-}
 
 int ip_string_from_ipv4(const struct sockaddr_in *address, char *out, size_t out_size) {
     if (inet_ntop(AF_INET, &address->sin_addr, out, out_size) == NULL) {
 
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
 
 int ip_string_from_ipv6(const struct sockaddr_in6 *address, char *out, size_t out_size) {
     if (inet_ntop(AF_INET6, &address->sin6_addr, out, out_size) == NULL) {
-        return ERROR;
+        return EX_OSERR;
     }
     return EX_OK;
 }
@@ -66,8 +46,8 @@ void ip_string_from_sockaddr(const struct sockaddr *addr, char *out, size_t out_
 }
 
 int set_target_port(struct sockaddr *addr, int port) {
-    if (addr == NULL || port < 1 || port > 65535) {
-        return ERROR;
+    if (addr == NULL || port < MIN_PORT_NUMBER || port > MAX_PORT_NUMBER) {
+        return EX_OSERR;
     }
 
     if (addr->sa_family == AF_INET) {
@@ -80,17 +60,17 @@ int set_target_port(struct sockaddr *addr, int port) {
         return EX_OK;
     }
 
-    return ERROR;
+    return EX_OSERR;
 }
 
 int bind_to_interface(int socket_fd, const char *interface_name) {
     if (socket_fd < 0 || interface_name == NULL) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (setsockopt(socket_fd, SOL_SOCKET, SO_BINDTODEVICE,
                    interface_name, strlen(interface_name) + 1) < 0) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     return EX_OK;
@@ -102,26 +82,26 @@ int configure_raw_socket(int raw_socket, int family, const char *interface_name)
     if (family == AF_INET) {
         if (setsockopt(raw_socket, IPPROTO_IP, IP_HDRINCL,
                 &include_ip_header, sizeof(include_ip_header)) < 0) {
-            return ERROR;
+            return EX_OSERR;
         }
     } else if (family == AF_INET6) {
         if (setsockopt(raw_socket, IPPROTO_IPV6, IPV6_HDRINCL,
                 &include_ip_header, sizeof(include_ip_header)) < 0) {
-            return ERROR;
+            return EX_OSERR;
         }
     } else {
-        return ERROR;
+        return EX_OSERR;
     }
 
     if (interface_name != NULL && bind_to_interface(raw_socket, interface_name) != EX_OK) {
-        return ERROR;
+        return EX_OSERR;
     }
 
     return EX_OK;
 }
 
 // check if packet was not corrupted 
-// Checksum calculation adapted from https://tools.ietf.org/html/rfc1071 and AI suggestions, but implemented for my usage
+// Checksum calculation adapted from https://tools.ietf.org/html/rfc1071, but implemented for my usage
 uint16_t checksum(const void *data, size_t length) {
     uint32_t sum = 0;
     const uint16_t *ptr = data;
@@ -145,7 +125,7 @@ uint16_t checksum_ipv4(struct in_addr source_ip, struct in_addr destination_ip,
     uint8_t protocol, const void *header, size_t header_length) {
 
     if (header == NULL || header_length == 0) {
-        return 0;
+        return EX_OK;
     }
 
     struct {
@@ -173,7 +153,7 @@ uint16_t checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip
     uint8_t next_header, const void *header, size_t header_length) {
 
     if (header == NULL || header_length == 0) {
-        return 0;
+        return EX_OK;
     }
 
     struct {

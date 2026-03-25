@@ -7,8 +7,6 @@
 #ifndef UDP_SCAN_H
 #define UDP_SCAN_H
 
-
-
 #include <netinet/in.h>
 #include "netinet/ip6.h"
 #include <string.h>
@@ -29,5 +27,17 @@
 
 
 int run_udp_scan(const Config *config);
+
+int create_udp_socket(const struct addrinfo *target);
+
+int resolve_udp_target(const Config *config, struct addrinfo **targets);
+
+int send_udp_ipv4(int socket, const struct sockaddr_in *destination_address);
+
+int send_udp_ipv6(int socket, const struct sockaddr_in6 *destination_address);
+
+int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms);
+
+int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target);
 
 #endif /* UDP_SCAN_H */

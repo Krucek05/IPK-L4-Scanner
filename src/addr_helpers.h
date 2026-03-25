@@ -8,10 +8,15 @@
 #ifndef ADDR_HELPERS_H
 #define ADDR_HELPERS_H
 
-#include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stddef.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define CHECKSUM_WORD_SIZE_BYTES 2
 #define CHECKSUM_SINGLE_BYTE_REMAINDER 1
