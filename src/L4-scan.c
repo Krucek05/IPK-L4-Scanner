@@ -296,6 +296,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < MAX_PROCESSED_SCANNS && config->order_of_scanning[i] != SCAN_NONE; i++) {
         if (program_terminated) {
+            fprintf(stderr,"---------------------------------------------------------------\n");
             fprintf(stderr, "\nScan interrupted before completion\n Finishing program \n");
             free(config);
             return PROGRAM_TERMINATED_ERROR;  // SIGINT/SIGTERM received
@@ -303,9 +304,10 @@ int main(int argc, char *argv[]) {
         
         int status = (config->order_of_scanning[i] == SCAN_TCP) ? run_tcp_scan(config) : run_udp_scan(config);
         
-        if (status == EX_TEMPFAIL) {
+        if (program_terminated) {
             free(config);
-            fprintf(stderr, "\nScan interrupted before completion\n Finishing program \n");
+            fprintf(stderr,"---------------------------------------------------------------\n");
+            fprintf(stderr, "Scan interrupted before completion\nFinishing program \n");
             return PROGRAM_TERMINATED_ERROR; // SIGINT/SIGTERM received
         }
         

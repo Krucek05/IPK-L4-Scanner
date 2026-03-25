@@ -19,6 +19,7 @@
 
 char detected_iface[32] = {0};
 
+// This setup interface was build with AI assitance
 void suite_setup(void) {
     FILE *fp = popen(BINARY " -i | grep -v 'lo' | head -n 1", "r");
     if (!fp || fscanf(fp, "%31s", detected_iface) != 1) strcpy(detected_iface, "eth0");

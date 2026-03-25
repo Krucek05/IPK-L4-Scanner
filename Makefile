@@ -11,10 +11,12 @@ TEST_DIR = tests
 
 PARSING_BIN   = $(TEST_DIR)/parsing_tests
 EXIT_CODE_BIN = $(TEST_DIR)/exit_codes_tests
+NETWORK_BIN   = $(TEST_DIR)/network_tests
 TEST_SCRIPT   = $(TEST_DIR)/test_parsing.sh
 
-TEST_CFLAGS  = $(CFLAGS) -DUNIT_TEST $(shell pkg-config --cflags criterion)
-TEST_LDFLAGS = $(shell pkg-config --libs criterion) -lpcap
+TEST_CFLAGS  = $(CFLAGS) -DUNIT_TEST
+TEST_LDFLAGS = -lpcap -lcriterion
+TEST_SRCS    = src/L4-scan.c src/tcp_scan.c src/udp_scan.c src/addr_helpers.c
 
 .PHONY: all clean test test-functional NixDevShellName
 
@@ -28,16 +30,19 @@ $(TARGET): $(OBJS)
 
 test: all
 	@echo "--- 1. Running Bash Parsing Script ---"
-	chmod +x $(TEST_SCRIPT)
-	./$(TEST_SCRIPT)
+	sudo ./$(TEST_SCRIPT)
 	
 	@echo -e "\n--- 2. Running Criterion Parsing Unit Tests ---"
 	$(MAKE) $(PARSING_BIN)
-	./$(PARSING_BIN)
+	sudo ./$(PARSING_BIN)
 	
-	@echo -e "\n--- 3. Running Exit Code Functional Tests ---"
+	@echo -e "\n--- 3. Running Exit Code Tests ---"
 	$(MAKE) $(EXIT_CODE_BIN)
 	sudo ./$(EXIT_CODE_BIN)
+
+	@echo -e "\n--- 4. Running Network Errors Tests ---"
+	$(MAKE) $(NETWORK_BIN)
+	sudo ./$(NETWORK_BIN)
 
 test_exit_codes: all
 	$(MAKE) $(EXIT_CODE_BIN)
@@ -45,17 +50,20 @@ test_exit_codes: all
 
 # --- Test Compilation ---
 
-$(PARSING_BIN): $(TEST_DIR)/test_parsing.c src/L4-scan.c
+$(PARSING_BIN): $(TEST_DIR)/test_parsing.c $(TEST_SRCS)
 	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LDFLAGS)
 
-$(EXIT_CODE_BIN): $(TEST_DIR)/exit_codes.c src/L4-scan.c
+$(EXIT_CODE_BIN): $(TEST_DIR)/exit_codes.c $(TEST_SRCS)
+	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LDFLAGS)
+
+$(NETWORK_BIN): $(TEST_DIR)/network_errors.c $(TEST_SRCS)
 	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LDFLAGS)
 
 $(TEST_TARGET): $(TEST_SRCS) $(HDRS)
 	$(CC) $(TEST_CFLAGS) -o $@ $(TEST_SRCS) $(TEST_LDFLAGS)
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(TEST_TARGET) $(PARSING_BIN) $(EXIT_CODE_BIN)
+	rm -f $(OBJS) $(TARGET) $(TEST_TARGET) $(PARSING_BIN) $(EXIT_CODE_BIN) $(NETWORK_BIN)
 
 NixDevShellName:
 	@echo c
