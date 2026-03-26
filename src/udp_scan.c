@@ -78,23 +78,18 @@ int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
             if ((int)packet_header->caplen < link_header_length + ip_hlen + 8) continue;
 
             const uint8_t *icmp_start = ip_start + ip_hlen;
-            uint8_t icmp_type = icmp_start[0];
-            uint8_t icmp_code = icmp_start[1];
 
             // ICMP type 3, code 3 = port unreachable
-            if (icmp_type == 3 && icmp_code == 3) {
-                // Optionally, check embedded UDP header for port match
+            if (icmp_start[0] == ICMP_TYPE && icmp_start[1] == ICMP_CODE) {
                 return PORT_STATUS_CLOSED;
             }
         } else if (IS_IPV6_VERSION(version)) {
             struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)ip_start;
             if (ip6_hdr->ip6_nxt != IPPROTO_ICMPV6) continue;
             const uint8_t *icmp6_start = ip_start + sizeof(struct ip6_hdr);
-            uint8_t icmp6_type = icmp6_start[0];
-            uint8_t icmp6_code = icmp6_start[1];
 
             // ICMPv6 type 1, code 4 = port unreachable
-            if (icmp6_type == 1 && icmp6_code == 4) {
+            if (icmp6_start[0] == ICMP6_TYPE && icmp6_start[1] == ICMP6_CODE) {
                 return PORT_STATUS_CLOSED;
             }
         }
@@ -130,13 +125,15 @@ int scan_udp_ports_for_one_target(const Config *config, struct addrinfo *target)
         int send_status = EX_OSERR;
 
         if (target->ai_family == AF_INET) {
-            struct sockaddr_in *dest4 = (struct sockaddr_in *)target->ai_addr;
-            dest4->sin_port = htons(port_number);
-            send_status = send_udp_ipv4(udp_socket, dest4);
+            struct sockaddr_in dest4;
+            memcpy(&dest4, target->ai_addr, sizeof(struct sockaddr_in));
+            dest4.sin_port = htons(port_number);
+            send_status = send_udp_ipv4(udp_socket, &dest4);
         } else {
-            struct sockaddr_in6 *dest6 = (struct sockaddr_in6 *)target->ai_addr;
-            dest6->sin6_port = htons(port_number);
-            send_status = send_udp_ipv6(udp_socket, dest6);
+            struct sockaddr_in6 dest6;
+            memcpy(&dest6, target->ai_addr, sizeof(struct sockaddr_in6));
+            dest6.sin6_port = htons(port_number);
+            send_status = send_udp_ipv6(udp_socket, &dest6);
         }
 
         if (send_status == EX_OSERR) continue;

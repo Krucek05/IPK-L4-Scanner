@@ -24,7 +24,10 @@
 #include "L4-scan.h"
 #include "tcp_scan.h"
 
-
+#define ICMP_TYPE 3
+#define ICMP_CODE 3
+#define ICMP6_TYPE 1
+#define ICMP6_CODE 4
 
 int run_udp_scan(const Config *config);
 

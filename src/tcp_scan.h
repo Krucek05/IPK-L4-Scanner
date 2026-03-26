@@ -45,15 +45,6 @@ typedef struct  {
     struct in_addr destination_ip;
 } Ipv4_header;
 
-typedef struct {
-    uint32_t version_traffic_class_flow_label; // Version (4 bits) + Traffic Class (8 bits) + Flow Label (20 bits)
-    uint16_t payload_length;
-    uint8_t next_header;
-    uint8_t hop_limit;
-    struct in6_addr source_ip;
-    struct in6_addr destination_ip;
-} Ipv6_header;
-
 #define IPV4_VERSION_IHL(header_bytes) ((4 << 4) | ((header_bytes) / 4))
 #define TCP_DATA_OFFSET(header_bytes) (((header_bytes) / 4) << 4)
 

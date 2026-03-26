@@ -159,9 +159,9 @@ Test(network_errors, localhost_closed_port) {
     bool has_status = strstr(r.output, "closed") || strstr(r.output, "filtered");
     cr_assert(has_status, "Should report port status");
 
-    RunResult r = run_app_timed("-i lo -u 9 -w 500 127.0.0.1");
+    r = run_app_timed("-i lo -u 9 -w 500 127.0.0.1");
     cr_assert_eq(r.exit_code, EX_OK);
-    bool has_status = strstr(r.output, "closed") || strstr(r.output, "filtered");
+    has_status = strstr(r.output, "closed") || strstr(r.output, "filtered");
     cr_assert(has_status, "Should report port status");
 }
 
