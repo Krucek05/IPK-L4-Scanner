@@ -160,7 +160,7 @@ uint16_t checksum_ipv6(struct in6_addr source_ip, struct in6_addr destination_ip
         struct in6_addr source;
         struct in6_addr destination;
         uint32_t length;
-        uint8_t zero[3];
+        uint8_t zero[IPV4_PSEUDO_HEADER_ZERO_PADDING]; // Padding
         uint8_t next_header;
     } pseudo_header;
 

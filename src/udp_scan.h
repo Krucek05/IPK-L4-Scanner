@@ -28,6 +28,7 @@
 #define ICMP_CODE 3
 #define ICMP6_TYPE 1
 #define ICMP6_CODE 4
+#define MIN_UDP_PACKET_HEADER_SIZE 8
 
 int run_udp_scan(const Config *config);
 

@@ -22,6 +22,7 @@
 #define CHECKSUM_SINGLE_BYTE_REMAINDER 1
 #define CHECKSUM_CARRY_SHIFT 16
 #define CHECKSUM_LOW_16_MASK 0xFFFF
+#define IPV4_PSEUDO_HEADER_ZERO_PADDING 3
 
 /** Check if any TCP or UDP ports are selected in the boolean array */
 bool has_selected_ports(const bool *ports);

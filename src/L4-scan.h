@@ -36,6 +36,7 @@
 #define SLIDING_WINDOW_SIZE 65535
 #define PORT_ERROR -1
 #define PROGRAM_TERMINATED_ERROR 130
+#define NUMBER_OF_BYTES_PER_WORD 4
 
 
 extern volatile sig_atomic_t program_terminated;

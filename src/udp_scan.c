@@ -73,9 +73,10 @@ int catch_icmp_response(pcap_t *pcap_handle, unsigned timeout_ms) {
 
         if (IS_IPV4_VERSION(version)) {
             struct iphdr *ip_hdr = (struct iphdr *)ip_start;
-            int ip_hlen = ip_hdr->ihl * 4;
-            if (ip_hdr->protocol != IPPROTO_ICMP) continue;
-            if ((int)packet_header->caplen < link_header_length + ip_hlen + 8) continue;
+            int ip_hlen = ip_hdr->ihl * NUMBER_OF_BYTES_PER_WORD; // Calculates the length of the IPv4 header in bytes
+            if (ip_hdr->protocol != IPPROTO_ICMP) continue; 
+            // 
+            if ((int)packet_header->caplen < link_header_length + ip_hlen + MIN_UDP_PACKET_HEADER_SIZE) continue;
 
             const uint8_t *icmp_start = ip_start + ip_hlen;
 

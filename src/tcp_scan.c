@@ -47,7 +47,6 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
             continue;
         }
 
-        // For IPv4, prefer the primary usable address that is not loopback
         if (family == AF_INET) {
             const struct sockaddr_in *ipv4_address = (const struct sockaddr_in *)current_interface->ifa_addr;
             // For IPv4, we should use the primary usable address that is not loopback
@@ -67,7 +66,6 @@ int get_local_ip_address(const char *target_interface_name, int family, void *re
         // For IPv6, we should use the first global address on the selected interface, 
         // but if none found, we can fallback to link-local or loopback
         const struct sockaddr_in6 *ipv6_address = (const struct sockaddr_in6 *)current_interface->ifa_addr;
-        // IPv6 should use the first global address on the selected interface.
         if (IN6_IS_ADDR_LINKLOCAL(&ipv6_address->sin6_addr) || IN6_IS_ADDR_LOOPBACK(&ipv6_address->sin6_addr)) {
             if (!ipv6_candidate_found) {
                 ipv6_candidate = ipv6_address->sin6_addr;
@@ -256,9 +254,10 @@ int catch_tcp_response(pcap_t *pcap_handle, uint16_t my_port, uint16_t target_po
             if ((int)packet_header->caplen < link_header_length + (int)sizeof(struct iphdr)) continue;
 
             struct iphdr *ip_hdr = (struct iphdr *)ip_start;
-            int ip_hlen = ip_hdr->ihl * 4;
+            int ip_hlen = ip_hdr->ihl * NUMBER_OF_BYTES_PER_WORD; // Calculates the length of the IPv4 header in bytes
 
-            if (ip_hlen < 20 || (int)packet_header->caplen < link_header_length + ip_hlen + (int)sizeof(struct tcphdr)) continue;
+            if (ip_hlen < MINIMUM_HEADER_SIZE_FOR_IPV_HEADER || 
+                (int)packet_header->caplen < link_header_length + ip_hlen + (int)sizeof(struct tcphdr)) continue;
             tcp_header = (struct tcphdr *)(ip_start + ip_hlen);
         } else if (IS_IPV6_VERSION(version)) {
             if ((int)packet_header->caplen < link_header_length + (int)sizeof(struct ip6_hdr) + (int)sizeof(struct tcphdr)) continue;

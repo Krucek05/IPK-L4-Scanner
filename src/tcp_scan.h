@@ -64,6 +64,7 @@ typedef struct  {
 #define IP_VERSION_FROM_FIRST_BYTE(first_byte) (((first_byte) >> 4) & IP_VERSION_MASK)
 #define IS_IPV4_VERSION(version) ((version) == IPV4_VERSION_VALUE)
 #define IS_IPV6_VERSION(version) ((version) == IPV6_VERSION_VALUE)
+#define MINIMUM_HEADER_SIZE_FOR_IPV_HEADER 20 
 
 #define PCAP_FILTER_MAX_LENGTH 256 // May be a bit less
 
