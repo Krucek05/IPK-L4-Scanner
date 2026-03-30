@@ -501,6 +501,7 @@ int scan_tcp_ports_for_one_target(const Config *config, struct addrinfo *target)
 int run_tcp_scan(const Config *config) {
     struct addrinfo *targets = NULL;
     if (resolve_tcp_targets(config, &targets) != EX_OK) {
+        fprintf(stderr, "Invalid Host name\n");
         return EX_OSERR;
     }
 
