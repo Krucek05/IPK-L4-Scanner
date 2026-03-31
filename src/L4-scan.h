@@ -41,11 +41,6 @@
 
 extern volatile sig_atomic_t program_terminated;
 
-typedef enum{
-    ERROR = -1 ,
-    MALLOC_ERROR,
-} Program_Status;
-
 typedef enum {SCAN_NONE, SCAN_TCP, SCAN_UDP } ScanType;
 
 typedef enum{
