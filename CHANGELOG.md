@@ -12,5 +12,5 @@
 - Test suite: Bash scripts for CLI parsing, Criterion C tests for parsing and network behavior
 
 ### Known Limitations
-- Not known kernel or hardware dependencies
-- Not known any limitations 
+- No known kernel or hardware dependencies
+- No known any limitations 

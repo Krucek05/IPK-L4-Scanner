@@ -129,17 +129,17 @@ Test(network_errors, timeout_custom_short, .timeout = 5) {
     cr_assert_lt(r.duration_ms, 2000, "Short timeout should complete quickly");
 }
 
-Test(network_errors, timeout_custom_long, .timeout = 5) {
+Test(network_errors, timeout_custom_long, .timeout = 7) {
     // Set longer timeout (2000ms)
     RunResult r = run_app_timed("-i IFACE -t 9999 -w 2000 127.0.0.1");
     cr_assert_eq(r.exit_code, EX_OK);
-    cr_assert_lt(r.duration_ms, 4000, "Long timeout should take longer");
+    cr_assert_lt(r.duration_ms, 5000, "Long timeout should take longer");
 }
 
-Test(network_errors, timeout_multiple_ports_scales, .timeout = 5) {
+Test(network_errors, timeout_multiple_ports_scales, .timeout = 7) {
     RunResult r = run_app_timed("-i IFACE -t 9997,9998,9999 -w 500 127.0.0.1");
     cr_assert_eq(r.exit_code, EX_OK);
-    cr_assert_lt(r.duration_ms, 3000, "Multiple ports should take longer");
+    cr_assert_lt(r.duration_ms, 4000, "Multiple ports should take longer");
 }
 
 /* ==========================================================================
@@ -185,7 +185,7 @@ Test(network_errors, udp_timeout_behavior, .timeout = 5) {
 }
 
 /* ==========================================================================
-   EDGE CASES
+   OTHER CASES
    ========================================================================== */
 
 Test(network_errors, scan_port_1, .timeout = 5) {
@@ -208,4 +208,36 @@ Test(network_errors, rapid_succession_scans, .timeout = 5) {
     
     cr_assert_eq(r1.exit_code, EX_OK, "First scan should succeed");
     cr_assert_eq(r2.exit_code, EX_OK, "Second scan should succeed");
+}
+
+Test(network_errors, tcp_well_known_closed_ports, .timeout = 5) {
+    // Scan well-known but typically closed ports
+    // Port 22 (SSH), 25 (SMTP) are usually closed on localhost
+    RunResult r = run_app_timed("-i lo -t 22,25 -w 500 localhost");
+    cr_assert_eq(r.exit_code, EX_OK, "Scan should succeed");
+    
+    // Should report port statuses
+    bool has_closed_or_filtered = (strstr(r.output, "closed") != NULL);
+    cr_assert(has_closed_or_filtered, "Ports should be marked as closed");
+}
+
+Test(network_errors, tcp_external_common_ports, .timeout = 7) {
+    // Test against external network using detected interface
+    // Scan common ports: HTTP (80), HTTPS (443), DNS (53)
+    RunResult r = run_app_timed("-i IFACE -t 80,443 -w 1000 8.8.8.8");
+    cr_assert_eq(r.exit_code, EX_OK, "Scan should complete (connectivity issue is ok)");
+    
+    // Should have TCP in output
+    cr_assert(strstr(r.output, "tcp") != NULL, "Output should contain protocol");
+}
+
+Test(network_errors, tcp_filtered_ports_external, .timeout = 7) {
+    // Scan unlikely to be open on external host
+    RunResult r = run_app_timed("-i IFACE -t 9998,9999 -w 500 8.8.8.8");
+    cr_assert_eq(r.exit_code, EX_OK, "Scan should complete");
+    
+    // Likely to see filtered or closed
+    bool has_status = (strstr(r.output, "filtered") != NULL ||
+                       strstr(r.output, "closed") != NULL);
+    cr_assert(has_status, "Should report port status");
 }

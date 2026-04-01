@@ -32,6 +32,7 @@ typedef struct  {
     uint16_t urgent_pointer;
 } Tcp_header;
 
+/** IP header structure for raw packet construction (IPv4, RFC 791) */
 typedef struct  {
     uint8_t version_ihl; // Version (4 bits) + IHL (4 bits)
     uint8_t dscp_ecn;   // DSCP (6 bits) + ECN (2 bits)
@@ -86,6 +87,7 @@ int run_tcp_scan(const Config *config);
 /** Resolve hostname to IP address(es) using getaddrinfo */
 int resolve_tcp_targets(const Config *config, struct addrinfo **targets);
 
+/** Initialize a pcap listener for incoming responses*/
 pcap_t *initialize_pcap_listener(const Config *config, struct addrinfo *target, bool is_tcp);
 
 /** Scan TCP ports for a single target IP address */
